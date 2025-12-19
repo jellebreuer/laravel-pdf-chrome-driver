@@ -255,6 +255,7 @@ class Client
         $service = new ChromeDriverService($chrome_driver_binary, $port, $args);
 
         $chromeOptions = new ChromeOptions;
+        $chromeOptions->addArguments(['--headless=new']);
         $chromeOptions->addArguments(['--disable-gpu']);
         $chromeOptions->addArguments(['--disable-translate']);
         $chromeOptions->addArguments(['--disable-extensions']);
@@ -287,7 +288,7 @@ class Client
         if (self::onLinuxARM()) {
             throw new \Exception(
                 'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
-                'Please install Chromium via your package manager (e.g., apt-get install chromium chromium-driver) '.
+                'Please install Chromium via your package manager os some other route '.
                 'and configure the binary paths in config/make-pdf.php or via environment variables: '.
                 'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
             );
@@ -318,7 +319,7 @@ class Client
         if (self::onLinuxARM()) {
             throw new \Exception(
                 'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
-                'Please install Chromium via your package manager (e.g., apt-get install chromium chromium-driver) '.
+                'Please install Chromium via your package manager os some other route '.
                 'and configure the binary paths in config/make-pdf.php or via environment variables: '.
                 'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
             );

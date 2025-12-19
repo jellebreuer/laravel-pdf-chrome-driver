@@ -23,8 +23,7 @@ class InstallCommand extends Command
             $this->warn('Linux ARM64 detected.');
             $this->warn('Pre-built Chrome binaries are not available for this platform.');
             $this->newLine();
-            $this->info('To use this package on Linux ARM64, install Chromium via your package manager:');
-            $this->line('  apt-get install chromium chromium-driver');
+            $this->info('To use this package on Linux ARM64, install Chromium via your package manager or some other route.');
             $this->newLine();
             $this->info('Then configure the binary paths in your .env file:');
             $this->line('  MAKE_PDF_CHROME_PATH=/usr/bin/chromium');

@@ -16,9 +16,6 @@ return [
     | - Linux ARM64 environments (e.g., Docker on Apple Silicon)
     | - Environments where you prefer to use system-managed Chromium
     |
-    | For Linux ARM64, install Chromium via your package manager:
-    |   apt-get install chromium chromium-driver
-    |
     | Then configure the paths:
     |   'chrome_path' => '/usr/bin/chromium',
     |   'chromedriver_path' => '/usr/bin/chromedriver',
