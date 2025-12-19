@@ -255,7 +255,7 @@ class Client
         $service = new ChromeDriverService($chrome_driver_binary, $port, $args);
 
         $chromeOptions = new ChromeOptions;
-        $chromeOptions->addArguments(['--headless=new']);
+        $chromeOptions->addArguments(['--headless']);
         $chromeOptions->addArguments(['--disable-gpu']);
         $chromeOptions->addArguments(['--disable-translate']);
         $chromeOptions->addArguments(['--disable-extensions']);
