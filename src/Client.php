@@ -280,7 +280,7 @@ class Client
     public static function chromeDriverBinary(): string
     {
         $configPath = config('make-pdf.chromedriver_path');
-        if ($configPath) {
+        if (is_string($configPath) && $configPath !== '') {
             return $configPath;
         }
 
@@ -311,7 +311,7 @@ class Client
     public static function chromeHeadlessBinary(): string
     {
         $configPath = config('make-pdf.chrome_path');
-        if ($configPath) {
+        if (is_string($configPath) && $configPath !== '') {
             return $configPath;
         }
 

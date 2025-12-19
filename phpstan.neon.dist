@@ -7,3 +7,7 @@ parameters:
     checkModelProperties: true
     excludePaths:
         - src\Facades\*.php
+    ignoreErrors:
+        -
+            message: "#Called 'env' outside of the config directory#"
+            path: config/*
