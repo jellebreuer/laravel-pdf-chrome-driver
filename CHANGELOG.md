@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v0.2.1 - 2025-12-19
+
+### What's Changed
+
+* Added detection of linux on ARM and added config options + warnings by @jellebreuer in https://github.com/jellebreuer/laravel-make-pdf/pull/42
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-make-pdf/compare/v0.2.0...v0.2.1
+
 ## v0.2.0 - 2025-11-27
 
 ### What's Changed
