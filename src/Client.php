@@ -279,6 +279,20 @@ class Client
 
     public static function chromeDriverBinary(): string
     {
+        $configPath = config('make-pdf.chromedriver_path');
+        if ($configPath) {
+            return $configPath;
+        }
+
+        if (self::onLinuxARM()) {
+            throw new \Exception(
+                'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
+                'Please install Chromium via your package manager (e.g., apt-get install chromium chromium-driver) '.
+                'and configure the binary paths in config/make-pdf.php or via environment variables: '.
+                'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
+            );
+        }
+
         if (self::onWindows32()) {
             return package_path('browser', 'chromedriver-win32', 'chromedriver.exe');
         } elseif (self::onWindows64()) {
@@ -296,6 +310,20 @@ class Client
 
     public static function chromeHeadlessBinary(): string
     {
+        $configPath = config('make-pdf.chrome_path');
+        if ($configPath) {
+            return $configPath;
+        }
+
+        if (self::onLinuxARM()) {
+            throw new \Exception(
+                'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
+                'Please install Chromium via your package manager (e.g., apt-get install chromium chromium-driver) '.
+                'and configure the binary paths in config/make-pdf.php or via environment variables: '.
+                'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
+            );
+        }
+
         if (self::onWindows32()) {
             return package_path('browser', 'chrome-headless-shell-win32', 'chrome-headless-shell.exe');
         } elseif (self::onWindows64()) {
@@ -333,7 +361,12 @@ class Client
 
     public static function onLinux(): bool
     {
-        return PHP_OS_FAMILY === 'Linux';
+        return PHP_OS_FAMILY === 'Linux' && ! self::onLinuxARM();
+    }
+
+    public static function onLinuxARM(): bool
+    {
+        return PHP_OS_FAMILY === 'Linux' && in_array(php_uname('m'), ['aarch64', 'arm64']);
     }
 
     public static function getFreePort(int $start = 9515, int $end = 9999): int
