@@ -19,6 +19,23 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
+        if (Client::onLinuxARM()) {
+            $this->warn('Linux ARM64 detected.');
+            $this->warn('Pre-built Chrome binaries are not available for this platform.');
+            $this->newLine();
+            $this->info('To use this package on Linux ARM64, install Chromium via your package manager:');
+            $this->line('  apt-get install chromium chromium-driver');
+            $this->newLine();
+            $this->info('Then configure the binary paths in your .env file:');
+            $this->line('  MAKE_PDF_CHROME_PATH=/usr/bin/chromium');
+            $this->line('  MAKE_PDF_CHROMEDRIVER_PATH=/usr/bin/chromedriver');
+            $this->newLine();
+            $this->info('Or publish and edit the config file:');
+            $this->line('  php artisan vendor:publish --tag=make-pdf-config');
+
+            return self::SUCCESS;
+        }
+
         if (! File::exists(package_path('browser'))) {
             $this->info('Creating directory: '.package_path('browser'));
             File::ensureDirectoryExists(package_path('browser'));
