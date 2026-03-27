@@ -6,17 +6,19 @@ use Breuer\MakePDF\Enums\Format;
 use Breuer\MakePDF\Enums\Orientation;
 use Breuer\MakePDF\Enums\Unit;
 use Facebook\WebDriver\Chrome\ChromeDevToolsDriver;
-use Facebook\WebDriver\Chrome\ChromeDriver;
-use Facebook\WebDriver\Chrome\ChromeDriverService;
 use Facebook\WebDriver\Chrome\ChromeOptions;
 use Facebook\WebDriver\Remote\DesiredCapabilities;
+use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class Client
 {
-    protected ChromeDriver $browser;
+    protected RemoteWebDriver $browser;
+
+    protected Process $chromeDriverProcess;
 
     protected ChromeDevToolsDriver $devTools;
 
@@ -200,7 +202,7 @@ class Client
 
             $displayHeaderFooter = ! empty($this->footerHtml) || ! empty($this->headerHtml);
 
-            $this->devTools = $this->browser->getDevTools();
+            $this->devTools = new ChromeDevToolsDriver($this->browser);
             $response = $this->devTools->execute('Page.printToPDF', [
                 'landscape' => $this->orientation === Orientation::LANDSCAPE,
                 'printBackground' => true,
@@ -216,7 +218,7 @@ class Client
             ]);
         } finally {
             File::delete($html_tmp_file);
-            $this->browser->quit();
+            $this->quitBrowser();
         }
 
         return base64_decode(is_string($response['data']) ? $response['data'] : '');
@@ -239,7 +241,7 @@ class Client
         return view($name, $viewData)->render();
     }
 
-    protected function startBrowser(): ChromeDriver
+    protected function startBrowser(): RemoteWebDriver
     {
         $chrome_driver_binary = $this->chromeDriverBinary();
         $chrome_headless_binary = $this->chromeHeadlessBinary();
@@ -248,11 +250,14 @@ class Client
             throw new \Exception('chrome binary not found, please run: php artisan make-pdf:install');
         }
 
-        putenv('WEBDRIVER_CHROME_DRIVER='.$chrome_driver_binary);
-
         $port = self::getFreePort();
-        $args = ['--port='.$port];
-        $service = new ChromeDriverService($chrome_driver_binary, $port, $args);
+
+        $this->chromeDriverProcess = new Process(
+            [$chrome_driver_binary, '--port='.$port],
+            null,
+            $this->chromeEnvironment()
+        );
+        $this->chromeDriverProcess->start();
 
         $chromeOptions = new ChromeOptions;
         $chromeOptions->addArguments(['--headless']);
@@ -275,7 +280,40 @@ class Client
         $capabilities = DesiredCapabilities::chrome();
         $capabilities->setCapability(ChromeOptions::CAPABILITY, $chromeOptions);
 
-        return ChromeDriver::start($capabilities, $service);
+        return retry(5, fn () => RemoteWebDriver::create(
+            "http://localhost:{$port}",
+            $capabilities
+        ), 50);
+    }
+
+    /** @return array<string, string> */
+    protected function chromeEnvironment(): array
+    {
+        if (self::onMacARM() || self::onMacIntel() || self::onWindows32() || self::onWindows64()) {
+            return [];
+        }
+
+        return ['DISPLAY' => $_ENV['DISPLAY'] ?? ':0'];
+    }
+
+    protected function quitBrowser(): void
+    {
+        try {
+            if (isset($this->browser)) {
+                $this->browser->quit();
+            }
+        } catch (\Throwable) {
+            // Ignore quit failures, we'll force-kill below
+        } finally {
+            if (isset($this->chromeDriverProcess)) {
+                $this->chromeDriverProcess->stop();
+            }
+        }
+    }
+
+    public function __destruct()
+    {
+        $this->quitBrowser();
     }
 
     public static function chromeDriverBinary(): string
