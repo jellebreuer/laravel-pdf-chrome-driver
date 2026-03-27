@@ -2,6 +2,7 @@
 
 namespace Breuer\MakePDF;
 
+use Breuer\MakePDF\Commands\CleanupCommand;
 use Breuer\MakePDF\Commands\InstallCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -18,6 +19,7 @@ class PDFServiceProvider extends PackageServiceProvider
         $package
             ->name('laravel-make-pdf')
             ->hasConfigFile()
-            ->hasCommand(InstallCommand::class);
+            ->hasCommand(InstallCommand::class)
+            ->hasCommand(CleanupCommand::class);
     }
 }
