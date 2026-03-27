@@ -64,6 +64,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          composer remove laravel/boost --dev --no-interaction --no-update
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "nesbot/carbon:${{ matrix.os == 'windows-latest' && '^^^' || '' }}${{ matrix.carbon }}" --no-interaction --no-update
           composer update --prefer-stable --prefer-dist --no-interaction
 
