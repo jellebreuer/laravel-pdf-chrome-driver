@@ -1,9 +1,11 @@
 <?php
 
+use Breuer\MakePDF\Client;
+
 require __DIR__.'/vendor/autoload.php'; // Testbench autoload
 
 $facadeFile = __DIR__.'/src/Facades/PDF.php';
-$targetClass = \Breuer\MakePDF\Client::class;
+$targetClass = Client::class;
 
 if (! file_exists($facadeFile)) {
     fwrite(STDERR, "❌ File not found: $facadeFile\n");
