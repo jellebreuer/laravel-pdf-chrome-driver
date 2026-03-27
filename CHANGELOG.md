@@ -2,6 +2,23 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v0.3.0 - 2026-03-27
+
+### What's Changed
+
+#### Breaking
+
+* Dropped Laravel 10 support
+* Dropped PHP 8.1 support (minimum is now PHP 8.2)
+
+#### Added
+
+* Laravel 13 support
+* Cleanup command (make-pdf:cleanup) for killing orphaned chromedriver and chrome-headless-shell processes
+* Dedicated chromedriver process management for better teardown
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-make-pdf/compare/v0.2.1...v1.0.0
+
 ## v0.2.1 - 2025-12-19
 
 ### What's Changed
