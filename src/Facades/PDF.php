@@ -2,6 +2,7 @@
 
 namespace Breuer\MakePDF\Facades;
 
+use Breuer\MakePDF\Client;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -31,12 +32,12 @@ use Illuminate\Support\Facades\Facade;
  * @method static int getFreePort(int $start = 9515, int $end = 9999)
  * @method static bool isPortFree(int $port, string $host = '127.0.0.1')
  *
- * @see \Breuer\MakePDF\Client
+ * @see Client
  */
 class PDF extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return \Breuer\MakePDF\Client::class;
+        return Client::class;
     }
 }
