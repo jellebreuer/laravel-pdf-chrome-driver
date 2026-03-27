@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static int getFreePort(int $start = 9515, int $end = 9999)
  * @method static bool isPortFree(int $port, string $host = '127.0.0.1')
  *
- * @see \Breuer\MakePDF\Client
+ * @see Client
  */
 class PDF extends Facade
 {
