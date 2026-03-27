@@ -12,7 +12,7 @@ which uses BrowserShot and Puppeteer, but our solution offers a more PHP-centric
 
 ## Requirements
 
-Laravel Make PDF requires **PHP 8.1+** and **Laravel 10+**.
+Laravel Make PDF requires **PHP 8.2+** and **Laravel 11+**.
 
 ## Installation & Setup
 
