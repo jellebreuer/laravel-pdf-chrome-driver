@@ -293,7 +293,9 @@ class Client
             return [];
         }
 
-        return ['DISPLAY' => $_ENV['DISPLAY'] ?? ':0'];
+        $display = $_ENV['DISPLAY'] ?? ':0';
+
+        return ['DISPLAY' => is_string($display) ? $display : ':0'];
     }
 
     protected function quitBrowser(): void

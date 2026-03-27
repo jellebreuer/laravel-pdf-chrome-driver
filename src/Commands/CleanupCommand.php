@@ -55,6 +55,7 @@ class CleanupCommand extends Command
             return [];
         }
 
+        /** @var list<int> */
         return collect(explode("\n", $result->output()))
             ->filter(fn (string $line): bool => str_contains($line, $name))
             ->map(fn (string $line): ?array => preg_split('/\s+/', trim($line), 3) ?: null)
@@ -81,7 +82,7 @@ class CleanupCommand extends Command
 
         $parts = array_reverse(explode(':', $etime));
 
-        $seconds = (int) ($parts[0] ?? 0);
+        $seconds = (int) $parts[0];
         $minutes = (int) ($parts[1] ?? 0);
         $hours = (int) ($parts[2] ?? 0);
 
