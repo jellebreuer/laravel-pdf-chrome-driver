@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v0.3.1 - 2026-03-30
+
+### What's Changed
+
+* made cleanup more safe to prevent unintentional closing of other processes
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-make-pdf/compare/v0.3.0...v0.3.1
+
 ## v0.3.0 - 2026-03-27
 
 ### What's Changed
