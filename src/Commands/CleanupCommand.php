@@ -2,21 +2,17 @@
 
 namespace Breuer\MakePDF\Commands;
 
+use Breuer\MakePDF\Client;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
+
+use function Breuer\MakePDF\package_path;
 
 class CleanupCommand extends Command
 {
     public $signature = 'make-pdf:cleanup {--older-than=120 : Kill processes older than this many seconds}';
 
     public $description = 'Kill orphaned chromedriver and chrome-headless-shell processes';
-
-    /** @var list<string> */
-    protected array $processNames = [
-        'chromedriver',
-        'chrome-headless-shell',
-        'chrome_crashpad',
-    ];
 
     public function handle(): int
     {
@@ -29,11 +25,17 @@ class CleanupCommand extends Command
         $threshold = (int) $this->option('older-than');
         $killed = 0;
 
-        foreach ($this->processNames as $processName) {
-            $pids = $this->findOrphanedProcesses($processName, $threshold);
+        /** @var array<string, string> */
+        $binaries = [
+            'chromedriver' => $this->searchablePath(Client::chromeDriverBinary()),
+            'chrome-headless-shell' => $this->searchablePath(Client::chromeHeadlessBinary()),
+        ];
+
+        foreach ($binaries as $name => $binaryPath) {
+            $pids = $this->findOrphanedProcesses($binaryPath, $threshold);
 
             foreach ($pids as $pid) {
-                $this->warn("Killing {$processName} (PID: {$pid})");
+                $this->warn("Killing {$name} (PID: {$pid})");
                 posix_kill($pid, SIGTERM);
                 $killed++;
             }
@@ -47,9 +49,9 @@ class CleanupCommand extends Command
     }
 
     /** @return list<int> */
-    protected function findOrphanedProcesses(string $name, int $olderThanSeconds): array
+    protected function findOrphanedProcesses(string $binaryPath, int $olderThanSeconds): array
     {
-        $result = Process::run('ps -eo pid,etime,comm');
+        $result = Process::run('ps -eo pid,etime,args');
 
         if ($result->failed()) {
             return [];
@@ -57,13 +59,31 @@ class CleanupCommand extends Command
 
         /** @var list<int> */
         return collect(explode("\n", $result->output()))
-            ->filter(fn (string $line): bool => str_contains($line, $name))
-            ->map(fn (string $line): ?array => preg_split('/\s+/', trim($line), 3) ?: null)
-            ->filter(fn (?array $parts): bool => $parts !== null && count($parts) >= 3)
-            ->filter(fn (array $parts): bool => $this->parseEtime($parts[1]) >= $olderThanSeconds)
-            ->map(fn (array $parts): int => (int) $parts[0])
+            ->filter(fn(string $line): bool => str_contains($line, $binaryPath))
+            ->map(fn(string $line): ?array => preg_split('/\s+/', trim($line), 3) ?: null)
+            ->filter(fn(?array $parts): bool => $parts !== null && count($parts) >= 3)
+            ->filter(fn(array $parts): bool => $this->parseEtime($parts[1]) >= $olderThanSeconds)
+            ->map(fn(array $parts): int => (int) $parts[0])
             ->values()
             ->all();
+    }
+
+    /**
+     * Get the path to match against in ps output.
+     *
+     * For default package binaries, use a relative path from the package root
+     * so it matches across deployment releases. For custom config paths, use the full path.
+     */
+    protected function searchablePath(string $binaryPath): string
+    {
+        $packageRoot = package_path();
+        $vendorPrefix = dirname($packageRoot, 3) . '/';
+
+        if (str_starts_with($binaryPath, $vendorPrefix)) {
+            return substr($binaryPath, strlen($vendorPrefix));
+        }
+
+        return $binaryPath;
     }
 
     /**
