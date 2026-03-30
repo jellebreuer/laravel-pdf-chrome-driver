@@ -59,11 +59,11 @@ class CleanupCommand extends Command
 
         /** @var list<int> */
         return collect(explode("\n", $result->output()))
-            ->filter(fn(string $line): bool => str_contains($line, $binaryPath))
-            ->map(fn(string $line): ?array => preg_split('/\s+/', trim($line), 3) ?: null)
-            ->filter(fn(?array $parts): bool => $parts !== null && count($parts) >= 3)
-            ->filter(fn(array $parts): bool => $this->parseEtime($parts[1]) >= $olderThanSeconds)
-            ->map(fn(array $parts): int => (int) $parts[0])
+            ->filter(fn (string $line): bool => str_contains($line, $binaryPath))
+            ->map(fn (string $line): ?array => preg_split('/\s+/', trim($line), 3) ?: null)
+            ->filter(fn (?array $parts): bool => $parts !== null && count($parts) >= 3)
+            ->filter(fn (array $parts): bool => $this->parseEtime($parts[1]) >= $olderThanSeconds)
+            ->map(fn (array $parts): int => (int) $parts[0])
             ->values()
             ->all();
     }
@@ -77,7 +77,7 @@ class CleanupCommand extends Command
     protected function searchablePath(string $binaryPath): string
     {
         $packageRoot = package_path();
-        $vendorPrefix = dirname($packageRoot, 3) . '/';
+        $vendorPrefix = dirname($packageRoot, 3).'/';
 
         if (str_starts_with($binaryPath, $vendorPrefix)) {
             return substr($binaryPath, strlen($vendorPrefix));
