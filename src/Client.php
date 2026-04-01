@@ -320,12 +320,8 @@ class Client
             }
         }
 
-        try {
-            if (! empty($this->userDataDir) && File::isDirectory($this->userDataDir)) {
-                File::deleteDirectory($this->userDataDir);
-            }
-        } catch (\Throwable) {
-            // Ignore quit failures
+        if (! empty($this->userDataDir) && File::isDirectory($this->userDataDir)) {
+            retry(3, fn () => File::deleteDirectory($this->userDataDir), 100);
         }
     }
 
