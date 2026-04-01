@@ -59,6 +59,8 @@ class Client
     /** @var array<mixed> */
     protected array $footerViewData = [];
 
+    protected string $userDataDir;
+
     public function response(): Response
     {
         return response($this->getContent(), 200, [
@@ -280,10 +282,16 @@ class Client
         $capabilities = DesiredCapabilities::chrome();
         $capabilities->setCapability(ChromeOptions::CAPABILITY, $chromeOptions);
 
-        return retry(5, fn () => RemoteWebDriver::create(
-            "http://localhost:{$port}",
-            $capabilities
+        $driver = retry(5, fn () => RemoteWebDriver::create(
+            selenium_server_url: "http://localhost:{$port}",
+            desired_capabilities: $capabilities,
         ), 50);
+
+        /** @var array{userDataDir?: string} $chrome */
+        $chrome = $driver->getCapabilities()?->getCapability('chrome') ?? [];
+        $this->userDataDir = $chrome['userDataDir'] ?? '';
+
+        return $driver;
     }
 
     /** @return array<string, string> */
@@ -310,6 +318,14 @@ class Client
             if (isset($this->chromeDriverProcess)) {
                 $this->chromeDriverProcess->stop();
             }
+        }
+
+        try {
+            if (! empty($this->userDataDir) && File::isDirectory($this->userDataDir)) {
+                File::deleteDirectory($this->userDataDir);
+            }
+        } catch (\Throwable) {
+            // Ignore quit failures
         }
     }
 
