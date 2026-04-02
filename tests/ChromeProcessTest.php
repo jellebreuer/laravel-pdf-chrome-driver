@@ -8,9 +8,9 @@ function chromeCommand(string $userDataDir): array
     return [
         Client::chromeHeadlessBinary(),
         '--headless',
-        '--disable-gpu',
         '--no-sandbox',
         '--no-first-run',
+        '--no-zygote',
         '--disable-extensions',
         '--user-data-dir='.$userDataDir,
         '--remote-debugging-pipe',
