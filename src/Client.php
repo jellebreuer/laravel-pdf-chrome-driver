@@ -185,30 +185,32 @@ class Client
             $this->footerHtml = $this->renderView($this->footerViewName, $this->footerViewData);
         }
 
-        $this->startBrowser();
-
         try {
-            $target = $this->chrome->send('Target.createTarget', ['url' => 'about:blank']);
-            $targetId = $target['result']['targetId'];
+            $this->startBrowser();
 
+            /** @var array{result: array{targetId: string}} $target */
+            $target = $this->chrome->send('Target.createTarget', ['url' => 'about:blank']);
+
+            /** @var array{result: array{sessionId: string}} $session */
             $session = $this->chrome->send('Target.attachToTarget', [
-                'targetId' => $targetId,
+                'targetId' => $target['result']['targetId'],
                 'flatten' => true,
             ]);
             $sessionId = $session['result']['sessionId'];
 
             $this->chrome->send('Page.enable', [], $sessionId);
 
+            /** @var array{result: array{frameTree: array{frame: array{id: string}}}} $frameTree */
             $frameTree = $this->chrome->send('Page.getFrameTree', [], $sessionId);
-            $frameId = $frameTree['result']['frameTree']['frame']['id'];
 
             $this->chrome->send('Page.setDocumentContent', [
-                'frameId' => $frameId,
+                'frameId' => $frameTree['result']['frameTree']['frame']['id'],
                 'html' => $this->html,
             ], $sessionId);
 
             $displayHeaderFooter = ! empty($this->footerHtml) || ! empty($this->headerHtml);
 
+            /** @var array{result: array{data: string}} $response */
             $response = $this->chrome->send('Page.printToPDF', [
                 'landscape' => $this->orientation === Orientation::LANDSCAPE,
                 'printBackground' => true,
@@ -226,9 +228,7 @@ class Client
             $this->stopBrowser();
         }
 
-        $data = $response['result']['data'] ?? '';
-
-        return base64_decode(is_string($data) ? $data : '');
+        return base64_decode($response['result']['data']);
     }
 
     /**
@@ -248,6 +248,9 @@ class Client
         return view($name, $viewData)->render();
     }
 
+    /**
+     * @phpstan-assert !null $this->chrome
+     */
     protected function startBrowser(): void
     {
         if (self::onWindows()) {
@@ -330,8 +333,9 @@ class Client
             return;
         }
 
-        $items = new \FilesystemIterator($directory);
+        $items = new \FilesystemIterator($directory, \FilesystemIterator::SKIP_DOTS);
 
+        /** @var \SplFileInfo $item */
         foreach ($items as $item) {
             if ($item->isDir() && ! $item->isLink()) {
                 self::deleteDirectory($item->getPathname());

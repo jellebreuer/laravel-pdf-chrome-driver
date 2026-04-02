@@ -3,20 +3,10 @@
 use Breuer\MakePDF\ChromeProcess;
 use Breuer\MakePDF\Client;
 
-beforeEach(function () {
-    $this->process = new ChromeProcess;
-});
-
-afterEach(function () {
-    $this->process->stop();
-});
-
 function chromeCommand(string $userDataDir): array
 {
-    $binary = Client::chromeHeadlessBinary();
-
     return [
-        $binary,
+        Client::chromeHeadlessBinary(),
         '--headless',
         '--disable-gpu',
         '--no-sandbox',
@@ -36,93 +26,97 @@ function createTempUserDataDir(): string
 }
 
 it('can send cdp commands and receive responses', function () {
-    $userDataDir = createTempUserDataDir();
+    $process = new ChromeProcess;
+    $user_data_dir = createTempUserDataDir();
 
     try {
-        $this->process->start(chromeCommand($userDataDir));
+        $process->start(chromeCommand($user_data_dir));
 
-        $response = $this->process->send('Target.createTarget', ['url' => 'about:blank']);
+        $response = $process->send('Target.createTarget', ['url' => 'about:blank']);
 
         expect($response['result']['targetId'])->toBeString()->not->toBeEmpty();
     } finally {
-        $this->process->stop();
-        @rmdir($userDataDir);
+        $process->stop();
+        @rmdir($user_data_dir);
     }
 });
 
 it('can create a target and attach to it', function () {
-    $userDataDir = createTempUserDataDir();
+    $process = new ChromeProcess;
+    $user_data_dir = createTempUserDataDir();
 
     try {
-        $this->process->start(chromeCommand($userDataDir));
+        $process->start(chromeCommand($user_data_dir));
 
-        $target = $this->process->send('Target.createTarget', ['url' => 'about:blank']);
-        $session = $this->process->send('Target.attachToTarget', [
+        $target = $process->send('Target.createTarget', ['url' => 'about:blank']);
+        $session = $process->send('Target.attachToTarget', [
             'targetId' => $target['result']['targetId'],
             'flatten' => true,
         ]);
 
         expect($session['result']['sessionId'])->toBeString()->not->toBeEmpty();
     } finally {
-        $this->process->stop();
-        @rmdir($userDataDir);
+        $process->stop();
+        @rmdir($user_data_dir);
     }
 });
 
 it('can set document content via cdp', function () {
-    $userDataDir = createTempUserDataDir();
+    $process = new ChromeProcess;
+    $user_data_dir = createTempUserDataDir();
 
     try {
-        $this->process->start(chromeCommand($userDataDir));
+        $process->start(chromeCommand($user_data_dir));
 
-        $target = $this->process->send('Target.createTarget', ['url' => 'about:blank']);
-        $session = $this->process->send('Target.attachToTarget', [
+        $target = $process->send('Target.createTarget', ['url' => 'about:blank']);
+        $session = $process->send('Target.attachToTarget', [
             'targetId' => $target['result']['targetId'],
             'flatten' => true,
         ]);
         $session_id = $session['result']['sessionId'];
 
-        $this->process->send('Page.enable', [], $session_id);
+        $process->send('Page.enable', [], $session_id);
 
-        $frame_tree = $this->process->send('Page.getFrameTree', [], $session_id);
+        $frame_tree = $process->send('Page.getFrameTree', [], $session_id);
         $frame_id = $frame_tree['result']['frameTree']['frame']['id'];
 
-        $response = $this->process->send('Page.setDocumentContent', [
+        $response = $process->send('Page.setDocumentContent', [
             'frameId' => $frame_id,
             'html' => '<html><body>Hello</body></html>',
         ], $session_id);
 
         expect($response['id'])->toBeInt();
     } finally {
-        $this->process->stop();
-        @rmdir($userDataDir);
+        $process->stop();
+        @rmdir($user_data_dir);
     }
 });
 
 it('can generate a pdf via cdp', function () {
-    $userDataDir = createTempUserDataDir();
+    $process = new ChromeProcess;
+    $user_data_dir = createTempUserDataDir();
 
     try {
-        $this->process->start(chromeCommand($userDataDir));
+        $process->start(chromeCommand($user_data_dir));
 
-        $target = $this->process->send('Target.createTarget', ['url' => 'about:blank']);
-        $session = $this->process->send('Target.attachToTarget', [
+        $target = $process->send('Target.createTarget', ['url' => 'about:blank']);
+        $session = $process->send('Target.attachToTarget', [
             'targetId' => $target['result']['targetId'],
             'flatten' => true,
         ]);
         $session_id = $session['result']['sessionId'];
 
-        $this->process->send('Page.enable', [], $session_id);
+        $process->send('Page.enable', [], $session_id);
 
-        $frame_tree = $this->process->send('Page.getFrameTree', [], $session_id);
+        $frame_tree = $process->send('Page.getFrameTree', [], $session_id);
         $frame_id = $frame_tree['result']['frameTree']['frame']['id'];
 
-        $this->process->send('Page.setDocumentContent', [
+        $process->send('Page.setDocumentContent', [
             'frameId' => $frame_id,
             'html' => '<html><body><h1>PDF Test</h1></body></html>',
         ], $session_id);
 
-        $response = $this->process->send('Page.printToPDF', [
+        $response = $process->send('Page.printToPDF', [
             'landscape' => false,
             'printBackground' => true,
         ], $session_id);
@@ -130,27 +124,28 @@ it('can generate a pdf via cdp', function () {
         $pdf = base64_decode($response['result']['data']);
         expect($pdf)->toStartWith('%PDF-');
     } finally {
-        $this->process->stop();
-        @rmdir($userDataDir);
+        $process->stop();
+        @rmdir($user_data_dir);
     }
 });
 
 it('throws on cdp errors', function () {
-    $userDataDir = createTempUserDataDir();
+    $process = new ChromeProcess;
+    $user_data_dir = createTempUserDataDir();
 
     try {
-        $this->process->start(chromeCommand($userDataDir));
-
-        $this->process->send('NonExistent.method');
+        $process->start(chromeCommand($user_data_dir));
+        $process->send('NonExistent.method');
     } finally {
-        $this->process->stop();
-        @rmdir($userDataDir);
+        $process->stop();
+        @rmdir($user_data_dir);
     }
 })->throws(\RuntimeException::class, 'CDP error:');
 
 it('can stop without starting', function () {
-    $this->process->stop();
-    $this->process->stop();
+    $process = new ChromeProcess;
+    $process->stop();
+    $process->stop();
 
     expect(true)->toBeTrue();
 });
