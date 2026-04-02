@@ -5,22 +5,15 @@ namespace Breuer\MakePDF;
 use Breuer\MakePDF\Enums\Format;
 use Breuer\MakePDF\Enums\Orientation;
 use Breuer\MakePDF\Enums\Unit;
-use Facebook\WebDriver\Chrome\ChromeDevToolsDriver;
-use Facebook\WebDriver\Chrome\ChromeOptions;
-use Facebook\WebDriver\Remote\DesiredCapabilities;
-use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
 
 class Client
 {
-    protected RemoteWebDriver $browser;
+    protected ?ChromeProcess $chrome = null;
 
-    protected Process $chromeDriverProcess;
-
-    protected ChromeDevToolsDriver $devTools;
+    protected string $userDataDir = '';
 
     protected string $filename = 'download.pdf';
 
@@ -58,8 +51,6 @@ class Client
 
     /** @var array<mixed> */
     protected array $footerViewData = [];
-
-    protected string $userDataDir;
 
     public function response(): Response
     {
@@ -194,18 +185,31 @@ class Client
             $this->footerHtml = $this->renderView($this->footerViewName, $this->footerViewData);
         }
 
-        $this->browser = $this->startBrowser();
-
-        $html_tmp_file = tempnam(sys_get_temp_dir(), 'laravel-make-pdf').'.html';
-        File::put($html_tmp_file, $this->html);
+        $this->startBrowser();
 
         try {
-            $this->browser->get('file://'.$html_tmp_file);
+            $target = $this->chrome->send('Target.createTarget', ['url' => 'about:blank']);
+            $targetId = $target['result']['targetId'];
+
+            $session = $this->chrome->send('Target.attachToTarget', [
+                'targetId' => $targetId,
+                'flatten' => true,
+            ]);
+            $sessionId = $session['result']['sessionId'];
+
+            $this->chrome->send('Page.enable', [], $sessionId);
+
+            $frameTree = $this->chrome->send('Page.getFrameTree', [], $sessionId);
+            $frameId = $frameTree['result']['frameTree']['frame']['id'];
+
+            $this->chrome->send('Page.setDocumentContent', [
+                'frameId' => $frameId,
+                'html' => $this->html,
+            ], $sessionId);
 
             $displayHeaderFooter = ! empty($this->footerHtml) || ! empty($this->headerHtml);
 
-            $this->devTools = new ChromeDevToolsDriver($this->browser);
-            $response = $this->devTools->execute('Page.printToPDF', [
+            $response = $this->chrome->send('Page.printToPDF', [
                 'landscape' => $this->orientation === Orientation::LANDSCAPE,
                 'printBackground' => true,
                 'displayHeaderFooter' => $displayHeaderFooter,
@@ -217,13 +221,14 @@ class Client
                 'marginBottom' => $this->marginBottom,
                 'marginLeft' => $this->marginLeft,
                 'marginRight' => $this->marginRight,
-            ]);
+            ], $sessionId);
         } finally {
-            File::delete($html_tmp_file);
-            $this->quitBrowser();
+            $this->stopBrowser();
         }
 
-        return base64_decode(is_string($response['data']) ? $response['data'] : '');
+        $data = $response['result']['data'] ?? '';
+
+        return base64_decode(is_string($data) ? $data : '');
     }
 
     /**
@@ -243,122 +248,106 @@ class Client
         return view($name, $viewData)->render();
     }
 
-    protected function startBrowser(): RemoteWebDriver
+    protected function startBrowser(): void
     {
-        $chrome_driver_binary = $this->chromeDriverBinary();
-        $chrome_headless_binary = $this->chromeHeadlessBinary();
-
-        if (! File::exists($chrome_driver_binary) || ! File::exists($chrome_headless_binary)) {
-            throw new \Exception('chrome binary not found, please run: php artisan make-pdf:install');
+        if (self::onWindows()) {
+            throw new \Exception('Windows is not supported. This package uses CDP pipes which require a Unix-based OS.');
         }
 
-        $port = self::getFreePort();
+        $chromeBinary = self::chromeHeadlessBinary();
 
-        $this->chromeDriverProcess = new Process(
-            [$chrome_driver_binary, '--port='.$port],
-            null,
-            $this->chromeEnvironment()
-        );
-        $this->chromeDriverProcess->start();
+        if (! File::exists($chromeBinary)) {
+            throw new \Exception('Chrome binary not found, please run: php artisan make-pdf:install');
+        }
 
-        $chromeOptions = new ChromeOptions;
-        $chromeOptions->addArguments(['--headless']);
-        $chromeOptions->addArguments(['--disable-gpu']);
-        $chromeOptions->addArguments(['--disable-translate']);
-        $chromeOptions->addArguments(['--disable-extensions']);
-        $chromeOptions->addArguments(['--disable-sync']);
-        $chromeOptions->addArguments(['--disable-background-networking']);
-        $chromeOptions->addArguments(['--disable-software-rasterizer']);
-        $chromeOptions->addArguments(['--disable-default-apps']);
-        $chromeOptions->addArguments(['--disable-dev-shm-usage']);
-        $chromeOptions->addArguments(['--safebrowsing-disable-auto-update']);
-        $chromeOptions->addArguments(['--run-all-compositor-stages-before-draw']);
-        $chromeOptions->addArguments(['--no-first-run']);
-        $chromeOptions->addArguments(['--no-sandbox']);
-        $chromeOptions->addArguments(['--hide-scrollbars']);
-        $chromeOptions->addArguments(['--ignore-certificate-errors']);
-        $chromeOptions->setBinary($chrome_headless_binary);
+        $storagePath = storage_path('make-pdf');
+        File::ensureDirectoryExists($storagePath);
 
-        $capabilities = DesiredCapabilities::chrome();
-        $capabilities->setCapability(ChromeOptions::CAPABILITY, $chromeOptions);
+        if (! File::exists($storagePath.'/.gitignore')) {
+            File::put($storagePath.'/.gitignore', "*\n!.gitignore\n");
+        }
 
-        $driver = retry(5, fn () => RemoteWebDriver::create(
-            selenium_server_url: "http://localhost:{$port}",
-            desired_capabilities: $capabilities,
-        ), 50);
+        $this->userDataDir = $storagePath.'/'.(string) Str::uuid();
+        File::makeDirectory($this->userDataDir);
 
-        /** @var array{userDataDir?: string} $chrome */
-        $chrome = $driver->getCapabilities()?->getCapability('chrome') ?? [];
-        $this->userDataDir = $chrome['userDataDir'] ?? '';
-
-        return $driver;
+        $this->chrome = new ChromeProcess;
+        $this->chrome->start([
+            $chromeBinary,
+            '--headless',
+            '--disable-gpu',
+            '--disable-translate',
+            '--disable-extensions',
+            '--disable-sync',
+            '--disable-background-networking',
+            '--disable-software-rasterizer',
+            '--disable-default-apps',
+            '--disable-dev-shm-usage',
+            '--safebrowsing-disable-auto-update',
+            '--run-all-compositor-stages-before-draw',
+            '--no-first-run',
+            '--no-sandbox',
+            '--hide-scrollbars',
+            '--ignore-certificate-errors',
+            '--user-data-dir='.$this->userDataDir,
+            '--remote-debugging-pipe',
+        ], $this->chromeEnvironment());
     }
 
     /** @return array<string, string> */
     protected function chromeEnvironment(): array
     {
-        if (self::onMacARM() || self::onMacIntel() || self::onWindows32() || self::onWindows64()) {
-            return [];
+        if (self::onLinux() || self::onLinuxARM()) {
+            $display = $_ENV['DISPLAY'] ?? ':0';
+
+            return ['DISPLAY' => is_string($display) ? $display : ':0'];
         }
 
-        $display = $_ENV['DISPLAY'] ?? ':0';
-
-        return ['DISPLAY' => is_string($display) ? $display : ':0'];
+        return [];
     }
 
-    protected function quitBrowser(): void
+    protected function stopBrowser(): void
     {
-        try {
-            if (isset($this->browser)) {
-                $this->browser->quit();
+        if ($this->chrome !== null) {
+            $this->chrome->stop();
+            $this->chrome = null;
+        }
+
+        if (! empty($this->userDataDir) && is_dir($this->userDataDir)) {
+            for ($i = 0; $i < 3; $i++) {
+                try {
+                    self::deleteDirectory($this->userDataDir);
+                    break;
+                } catch (\Throwable) {
+                    usleep(100 * 1000);
+                }
             }
-        } catch (\Throwable) {
-            // Ignore quit failures, we'll force-kill below
-        } finally {
-            if (isset($this->chromeDriverProcess)) {
-                $this->chromeDriverProcess->stop();
+        }
+    }
+
+    protected static function deleteDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        $items = new \FilesystemIterator($directory);
+
+        foreach ($items as $item) {
+            if ($item->isDir() && ! $item->isLink()) {
+                self::deleteDirectory($item->getPathname());
+            } else {
+                @unlink($item->getPathname());
             }
         }
 
-        if (! empty($this->userDataDir) && File::isDirectory($this->userDataDir)) {
-            retry(3, fn () => File::deleteDirectory($this->userDataDir), 100);
-        }
+        unset($items);
+
+        @rmdir($directory);
     }
 
     public function __destruct()
     {
-        $this->quitBrowser();
-    }
-
-    public static function chromeDriverBinary(): string
-    {
-        $configPath = config('make-pdf.chromedriver_path');
-        if (is_string($configPath) && $configPath !== '') {
-            return $configPath;
-        }
-
-        if (self::onLinuxARM()) {
-            throw new \Exception(
-                'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
-                'Please install Chromium via your package manager os some other route '.
-                'and configure the binary paths in config/make-pdf.php or via environment variables: '.
-                'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
-            );
-        }
-
-        if (self::onWindows32()) {
-            return package_path('browser', 'chromedriver-win32', 'chromedriver.exe');
-        } elseif (self::onWindows64()) {
-            return package_path('browser', 'chromedriver-win64', 'chromedriver.exe');
-        } elseif (self::onLinux()) {
-            return package_path('browser', 'chromedriver-linux64', 'chromedriver');
-        } elseif (self::onMacARM()) {
-            return package_path('browser', 'chromedriver-mac-arm64', 'chromedriver');
-        } elseif (self::onMacIntel()) {
-            return package_path('browser', 'chromedriver-mac-x64', 'chromedriver');
-        }
-
-        throw new \Exception('Platform not supported');
+        $this->stopBrowser();
     }
 
     public static function chromeHeadlessBinary(): string
@@ -371,17 +360,13 @@ class Client
         if (self::onLinuxARM()) {
             throw new \Exception(
                 'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
-                'Please install Chromium via your package manager os some other route '.
+                'Please install Chromium via your package manager or some other route '.
                 'and configure the binary paths in config/make-pdf.php or via environment variables: '.
-                'MAKE_PDF_CHROME_PATH and MAKE_PDF_CHROMEDRIVER_PATH'
+                'MAKE_PDF_CHROME_PATH'
             );
         }
 
-        if (self::onWindows32()) {
-            return package_path('browser', 'chrome-headless-shell-win32', 'chrome-headless-shell.exe');
-        } elseif (self::onWindows64()) {
-            return package_path('browser', 'chrome-headless-shell-win64', 'chrome-headless-shell.exe');
-        } elseif (self::onLinux()) {
+        if (self::onLinux()) {
             return package_path('browser', 'chrome-headless-shell-linux64', 'chrome-headless-shell');
         } elseif (self::onMacARM()) {
             return package_path('browser', 'chrome-headless-shell-mac-arm64', 'chrome-headless-shell');
@@ -392,14 +377,9 @@ class Client
         throw new \Exception('Platform not supported');
     }
 
-    public static function onWindows32(): bool
+    public static function onWindows(): bool
     {
-        return PHP_OS_FAMILY === 'Windows' && PHP_INT_SIZE == 4;
-    }
-
-    public static function onWindows64(): bool
-    {
-        return PHP_OS_FAMILY === 'Windows' && PHP_INT_SIZE != 4;
+        return PHP_OS_FAMILY === 'Windows';
     }
 
     public static function onMacARM(): bool
@@ -420,28 +400,5 @@ class Client
     public static function onLinuxARM(): bool
     {
         return PHP_OS_FAMILY === 'Linux' && in_array(php_uname('m'), ['aarch64', 'arm64']);
-    }
-
-    public static function getFreePort(int $start = 9515, int $end = 9999): int
-    {
-        for ($port = $start; $port <= $end; $port++) {
-            if (self::isPortFree($port)) {
-                return $port;
-            }
-        }
-
-        throw new \Exception("No free port found between $start and $end");
-    }
-
-    public static function isPortFree(int $port, string $host = '127.0.0.1'): bool
-    {
-        $connection = @stream_socket_client("tcp://$host:$port", $errno, $errstr, 0.1);
-        if ($connection) {
-            fclose($connection);
-
-            return false;
-        }
-
-        return true;
     }
 }

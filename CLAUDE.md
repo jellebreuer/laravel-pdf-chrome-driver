@@ -1,3 +1,56 @@
+# laravel-make-pdf
+
+A Laravel package that generates PDFs by launching `chrome-headless-shell` and communicating with it directly over the Chrome DevTools Protocol (CDP) via pipes.
+
+## Architecture
+
+- **`Client.php`** — Public API (`PDF::html()->raw()`, `->response()`, `->download()`, `->save()`). Manages the browser lifecycle and sends CDP commands to render HTML to PDF.
+- **`ChromeProcess.php`** — Wraps `react/child-process` to launch `chrome-headless-shell` with `--remote-debugging-pipe`. Communicates via CDP over fd 3 (write) and fd 4 (read) using `\0`-delimited JSON. Uses React event loop + `react/async` `await()` for blocking waits on async streams.
+- **`Commands/InstallCommand.php`** — Downloads `chrome-headless-shell` binary from Google's CDN.
+- **`Facades/PDF.php`** — Laravel facade for `Client`.
+
+## Key design decisions
+
+- **No WebSocket** — Uses `--remote-debugging-pipe` (fd 3/4) instead of `--remote-debugging-port`. This avoids port allocation, network exposure, and polling for Chrome to be ready.
+- **No temp files** — HTML is injected via `Page.setDocumentContent` (CDP) instead of writing to a temp file and using `file://`.
+- **`react/child-process`** — Used to launch Chrome with custom file descriptors (fd 3/4) for CDP pipe communication. React's event loop handles async I/O on the pipes, with `react/async` `await()` to block until CDP responses arrive.
+- **User data dir cleanup** — Each run creates a unique `storage/make-pdf/{uuid}` directory passed as `--user-data-dir`. Cleaned up after Chrome stops, with retry logic. The `deleteDirectory` method is native PHP (no Laravel `File` facade) so it's safe to call from `__destruct`.
+
+## CDP flow
+
+1. `Target.createTarget` → creates a blank page
+2. `Target.attachToTarget` → gets a `sessionId` for that page
+3. `Page.enable` → enables page events on the session
+4. `Page.getFrameTree` → gets the root `frameId`
+5. `Page.setDocumentContent` → injects HTML into the frame
+6. `Page.printToPDF` → returns base64-encoded PDF data
+
+## Running tests
+
+```bash
+vendor/bin/pest                          # all tests
+vendor/bin/pest tests/ChromeProcessTest.php  # process tests only
+vendor/bin/pest tests/PdfTest.php            # integration tests
+```
+
+## Static analysis
+
+```bash
+composer analyse   # runs phpstan via larastan
+```
+
+## Code style
+
+```bash
+vendor/bin/pint    # Laravel Pint (PSR-12 / Laravel preset)
+```
+
+Uses camelCase for variables and methods.
+
+## Platform support
+
+Binaries are downloaded per-platform by `make-pdf:install`. Platform detection is in `Client::onMacARM()`, `onLinux()`, etc. Linux ARM64 requires manual Chromium installation.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

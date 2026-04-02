@@ -6,9 +6,9 @@
 [![GitHub PHPStan Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-make-pdf/phpstan.yml?branch=master&label=phpstan&style=flat-square)](https://github.com/jellebreuer/laravel-make-pdf/actions/workflows/phpstan.yml)
 [![GitHub Pint Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-make-pdf/fix-php-code-style-issues.yml?branch=master&label=laravel%20pint&style=flat-square)](https://github.com/jellebreuer/laravel-make-pdf/actions/workflows/fix-php-code-style-issues.yml)
 
-This package allows you to easily convert HTML to PDF using headless Chrome through Selenium, without needing Node.js.
-It is inspired by Spatie's [laravel-pdf](https://github.com/spatie/laravel-pdf) package,
-which uses BrowserShot and Puppeteer, but our solution offers a more PHP-centric approach using Selenium.
+This package allows you to easily convert HTML to PDF using headless Chrome, without needing Node.js.
+It communicates directly with `chrome-headless-shell` over the Chrome DevTools Protocol (CDP) via pipes.
+Inspired by Spatie's [laravel-pdf](https://github.com/spatie/laravel-pdf) package, but with a pure PHP approach — no Puppeteer, no Docker, no Cloudflare, no python, no Node.
 
 ## Requirements
 

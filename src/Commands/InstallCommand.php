@@ -15,10 +15,16 @@ class InstallCommand extends Command
 {
     public $signature = 'make-pdf:install';
 
-    public $description = 'Download latest stable chrome-headless-shell and chromedriver';
+    public $description = 'Download latest stable chrome-headless-shell';
 
     public function handle(): int
     {
+        if (Client::onWindows()) {
+            $this->error('Windows is not supported. This package uses CDP pipes which require a Unix-based OS.');
+
+            return self::FAILURE;
+        }
+
         if (Client::onLinuxARM()) {
             $this->warn('Linux ARM64 detected.');
             $this->warn('Pre-built Chrome binaries are not available for this platform.');
@@ -27,7 +33,6 @@ class InstallCommand extends Command
             $this->newLine();
             $this->info('Then configure the binary paths in your .env file:');
             $this->line('  MAKE_PDF_CHROME_PATH=/usr/bin/chromium');
-            $this->line('  MAKE_PDF_CHROMEDRIVER_PATH=/usr/bin/chromedriver');
             $this->newLine();
             $this->info('Or publish and edit the config file:');
             $this->line('  php artisan vendor:publish --tag=make-pdf-config');
@@ -46,7 +51,6 @@ class InstallCommand extends Command
         $this->info('Fetching latest chrome build information');
         $response = Http::get('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json');
         $headless_chrome_downloads = $this->findHeadlessChromeDownloadsInResponse($response);
-        $chromedriver_downloads = $this->findChromeDriveDownloadsInResponse($response);
 
         foreach ($headless_chrome_downloads as $download) {
             if ($download->platform !== $this->getPlatformKey()) {
@@ -67,41 +71,13 @@ class InstallCommand extends Command
 
             break;
         }
-        foreach ($chromedriver_downloads as $download) {
-            if ($download->platform !== $this->getPlatformKey()) {
-                continue;
-            }
-
-            $this->info('Downloading latest stable chromedriver');
-            $zipfile = package_path('browser/chromedriver.zip');
-            Http::sink($zipfile)->get($download->url);
-
-            $this->info('Unzipping');
-            $zip = new ZipArchive;
-            $zip->open($zipfile);
-            $zip->extractTo(package_path('browser'));
-            $zip->close();
-
-            File::delete($zipfile);
-
-            break;
-        }
 
         $this->info('Fixing permissions');
-        chmod(Client::chromeDriverBinary(), 0755);
         chmod(Client::chromeHeadlessBinary(), 0755);
 
         $this->info('Installation complete');
 
         return self::SUCCESS;
-    }
-
-    /**
-     * @return array<int, object{platform: string, url: string}>
-     */
-    protected function findChromeDriveDownloadsInResponse(Response $response): array
-    {
-        return $this->findDownloadsInResponse($response, 'chromedriver');
     }
 
     /**
@@ -164,11 +140,7 @@ class InstallCommand extends Command
     protected function getPlatformKey(): string
     {
 
-        if (Client::onWindows32()) {
-            return 'win32';
-        } elseif (Client::onWindows64()) {
-            return 'win64';
-        } elseif (Client::onLinux()) {
+        if (Client::onLinux()) {
             return 'linux64';
         } elseif (Client::onMacARM()) {
             return 'mac-arm64';

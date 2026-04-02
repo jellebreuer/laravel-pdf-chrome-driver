@@ -16,14 +16,11 @@ return [
     | - Linux ARM64 environments (e.g., Docker on Apple Silicon)
     | - Environments where you prefer to use system-managed Chromium
     |
-    | Then configure the paths:
+    | Then configure the path:
     |   'chrome_path' => '/usr/bin/chromium',
-    |   'chromedriver_path' => '/usr/bin/chromedriver',
     |
     */
 
     'chrome_path' => env('MAKE_PDF_CHROME_PATH'),
-
-    'chromedriver_path' => env('MAKE_PDF_CHROMEDRIVER_PATH'),
 
 ];
