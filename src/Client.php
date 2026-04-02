@@ -50,7 +50,7 @@ class Client
     /** @var array<mixed> */
     protected array $footerViewData = [];
 
-    private const DATA_DIR_PREFIX = 'user-data-dir-';
+    private const RUN_DIR_PREFIX = 'run-';
 
     public function response(): Response
     {
@@ -270,8 +270,9 @@ class Client
 
         self::cleanupStaleFiles($baseDir);
 
-        $userDataDir = $baseDir.'/'.self::DATA_DIR_PREFIX.Str::random(16);
-        File::makeDirectory($userDataDir);
+        $runDir = $baseDir.'/'.self::RUN_DIR_PREFIX.Str::random(16);
+        $userDataDir = $runDir.'/user-data-dir';
+        File::makeDirectory($userDataDir, 0755, true);
 
         $this->chrome = new ChromeProcess;
         $this->chrome->start([
@@ -299,11 +300,11 @@ class Client
             '--safebrowsing-disable-auto-update',
             '--user-data-dir='.$userDataDir,
             '--remote-debugging-pipe',
-        ], $this->chromeEnvironment());
+        ], $this->chromeEnvironment($runDir));
 
-        $this->chrome->onExit(function () use ($userDataDir): void {
-            if (is_dir($userDataDir)) {
-                self::deleteDirectory($userDataDir);
+        $this->chrome->onExit(function () use ($runDir): void {
+            if (is_dir($runDir)) {
+                self::deleteDirectory($runDir);
             }
         });
     }
@@ -317,9 +318,9 @@ class Client
     }
 
     /** @return array<string, string> */
-    protected function chromeEnvironment(): array
+    protected function chromeEnvironment(string $tmpDir): array
     {
-        $env = ['TMPDIR' => self::makePdfTmpDir()];
+        $env = ['TMPDIR' => $tmpDir];
 
         if (self::onLinux() || self::onLinuxARM()) {
             $display = $_ENV['DISPLAY'] ?? ':0';
@@ -341,19 +342,14 @@ class Client
         $threshold = time() - ((int) $timeout * 2);
 
         /** @var list<string> $paths */
-        $paths = array_merge(
-            File::glob($baseDir.'/'.self::DATA_DIR_PREFIX.'*'),
-            File::glob($baseDir.'/.org.chromium.Chromium.*'),
-            File::glob($baseDir.'/org.chromium.Chromium.*'),
-            File::glob($baseDir.'/.com.google.Chrome.*'),
-        );
+        $paths = File::glob($baseDir.'/'.self::RUN_DIR_PREFIX.'*');
 
         foreach ($paths as $path) {
             if (File::lastModified($path) > $threshold) {
                 continue;
             }
 
-            File::isDirectory($path) ? File::deleteDirectory($path) : File::delete($path);
+            File::deleteDirectory($path);
         }
     }
 
