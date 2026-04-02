@@ -20,6 +20,8 @@ class ChromeProcess
     /** @var list<array{match: callable, resolver: Deferred<array<string, mixed>>}> */
     protected array $waitingForResponse = [];
 
+    protected static bool $shutdownRegistered = false;
+
     /**
      * @param  list<string>  $command
      * @param  array<string, string>  $env
@@ -41,6 +43,15 @@ class ChromeProcess
         ]);
 
         $this->process->start(Loop::get());
+
+        // Prevent the React event loop from hanging when dd()/exit() is called
+        // during PDF generation
+        if (! self::$shutdownRegistered) {
+            self::$shutdownRegistered = true;
+            register_shutdown_function(static function (): void {
+                Loop::stop();
+            });
+        }
 
         // We only communicate over CDP pipes (3 and 4), close the rest
         $this->process->stdin?->close();
@@ -106,52 +117,23 @@ class ChromeProcess
         );
     }
 
-    /**
-     * Wait for a specific CDP event from Chrome.
-     *
-     * @return array<string, mixed>
-     */
-    public function waitForEvent(string $event): array
-    {
-        return $this->waitForMessage(
-            fn (array $response) => ($response['method'] ?? null) === $event,
-        );
-    }
-
     public function onExit(callable $callback): void
     {
         $this->process?->on('exit', $callback);
     }
 
-    public function stop(float $timeout = 2): void
+    public function stop(): void
     {
         if ($this->process === null) {
             return;
         }
 
+        // Close all pipes first — React docs require this before termination
         foreach ($this->process->pipes as $pipe) {
             $pipe->close();
         }
 
-        if (! $this->process->isRunning()) {
-            $this->process = null;
-
-            return;
-        }
-
-        // Graceful shutdown, then force kill if Chrome doesn't exit in time
-        $process = $this->process;
-        $process->terminate(15);
-
-        $deadline = microtime(true) + $timeout;
-        while ($process->isRunning() && microtime(true) < $deadline) {
-            usleep(10000);
-        }
-
-        if ($process->isRunning()) {
-            $process->terminate(9);
-        }
-
+        $this->process->terminate(9);
         $this->process = null;
     }
 
