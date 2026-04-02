@@ -50,7 +50,7 @@ class Client
     /** @var array<mixed> */
     protected array $footerViewData = [];
 
-    private const RUN_DIR_PREFIX = 'run-';
+    private const RUN_DIR_PREFIX = 'laravel-make-pdf-';
 
     public function response(): Response
     {
@@ -266,11 +266,9 @@ class Client
             throw new \Exception('Chrome binary not found, please run: php artisan make-pdf:install');
         }
 
-        $baseDir = self::makePdfTmpDir();
+        self::cleanupStaleFiles();
 
-        self::cleanupStaleFiles($baseDir);
-
-        $runDir = $baseDir.'/'.self::RUN_DIR_PREFIX.Str::random(16);
+        $runDir = sys_get_temp_dir().'/'.self::RUN_DIR_PREFIX.Str::random(16);
         $userDataDir = $runDir.'/user-data-dir';
         File::makeDirectory($userDataDir, 0755, true);
 
@@ -309,14 +307,6 @@ class Client
         });
     }
 
-    protected static function makePdfTmpDir(): string
-    {
-        $tmp = sys_get_temp_dir().'/laravel-make-pdf';
-        File::ensureDirectoryExists($tmp);
-
-        return $tmp;
-    }
-
     /** @return array<string, string> */
     protected function chromeEnvironment(string $tmpDir): array
     {
@@ -335,14 +325,14 @@ class Client
      * Only deletes entries older than double the configured timeout to avoid
      * interfering with parallel processes.
      */
-    protected static function cleanupStaleFiles(string $baseDir): void
+    protected static function cleanupStaleFiles(): void
     {
         /** @var int|float $timeout */
         $timeout = config('make-pdf.timeout', 30);
         $threshold = time() - ((int) $timeout * 2);
 
         /** @var list<string> $paths */
-        $paths = File::glob($baseDir.'/'.self::RUN_DIR_PREFIX.'*');
+        $paths = File::glob(sys_get_temp_dir().'/'.self::RUN_DIR_PREFIX.'*');
 
         foreach ($paths as $path) {
             if (File::lastModified($path) > $threshold) {
