@@ -109,6 +109,11 @@ class ChromeProcess
         );
     }
 
+    public function onExit(callable $callback): void
+    {
+        $this->process?->on('exit', $callback);
+    }
+
     public function stop(): void
     {
         if ($this->process === null) {

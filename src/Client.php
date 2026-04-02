@@ -270,8 +270,10 @@ class Client
             File::put($storagePath.'/.gitignore', "*\n!.gitignore\n");
         }
 
-        $this->userDataDir = $storagePath.'/'.(string) Str::uuid();
-        File::makeDirectory($this->userDataDir);
+        $this->cleanupStaleDirectories($storagePath);
+
+        $userDataDir = $storagePath.'/'.(string) Str::uuid();
+        File::makeDirectory($userDataDir);
 
         $this->chrome = new ChromeProcess;
         $this->chrome->start([
@@ -291,9 +293,16 @@ class Client
             '--no-sandbox',
             '--hide-scrollbars',
             '--ignore-certificate-errors',
-            '--user-data-dir='.$this->userDataDir,
+            '--user-data-dir='.$userDataDir,
             '--remote-debugging-pipe',
         ], $this->chromeEnvironment());
+
+        // Clean up user-data-dir after Chrome exits
+        $this->chrome->onExit(function () use ($userDataDir): void {
+            if (is_dir($userDataDir)) {
+                File::deleteDirectory($userDataDir);
+            }
+        });
     }
 
     /** @return array<string, string> */
@@ -308,45 +317,28 @@ class Client
         return [];
     }
 
-    protected function stopBrowser(): void
+    protected function cleanupStaleDirectories(string $storagePath): void
     {
-        if ($this->chrome !== null) {
-            $this->chrome->stop();
-            $this->chrome = null;
-        }
+        $threshold = time() - 300;
 
-        if (! empty($this->userDataDir) && is_dir($this->userDataDir)) {
-            for ($i = 0; $i < 3; $i++) {
-                try {
-                    self::deleteDirectory($this->userDataDir);
-                    break;
-                } catch (\Throwable) {
-                    usleep(100 * 1000);
-                }
+        /** @var list<string> $directories */
+        $directories = File::directories($storagePath);
+
+        foreach ($directories as $dir) {
+            if (File::lastModified($dir) < $threshold) {
+                File::deleteDirectory($dir);
             }
         }
     }
 
-    protected static function deleteDirectory(string $directory): void
+    protected function stopBrowser(): void
     {
-        if (! is_dir($directory)) {
+        if ($this->chrome === null) {
             return;
         }
 
-        $items = new \FilesystemIterator($directory, \FilesystemIterator::SKIP_DOTS);
-
-        /** @var \SplFileInfo $item */
-        foreach ($items as $item) {
-            if ($item->isDir() && ! $item->isLink()) {
-                self::deleteDirectory($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        unset($items);
-
-        @rmdir($directory);
+        $this->chrome->stop();
+        $this->chrome = null;
     }
 
     public function __destruct()

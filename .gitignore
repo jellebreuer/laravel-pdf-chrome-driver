@@ -29,3 +29,8 @@ phpstan.neon
 /docs
 /coverage
 /browser
+
+/gotenberg
+/puppeteer
+/playwright
+/process
