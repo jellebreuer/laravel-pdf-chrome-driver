@@ -22,6 +22,8 @@ class ChromeProcess
 
     protected static bool $shutdownRegistered = false;
 
+    protected static bool $stopped = false;
+
     /**
      * @param  list<string>  $command
      * @param  array<string, string>  $env
@@ -44,12 +46,18 @@ class ChromeProcess
 
         $this->process->start(Loop::get());
 
-        // Prevent the React event loop from hanging when dd()/exit() is called
-        // during PDF generation
+        self::$stopped = false;
+
         if (! self::$shutdownRegistered) {
             self::$shutdownRegistered = true;
             register_shutdown_function(static function (): void {
-                Loop::stop();
+                // Only stop the loop on abnormal exit (dd/exit) to allow
+                // onExit callbacks to fire during normal shutdown
+                if (! self::$stopped) {
+                    Loop::stop();
+                }
+
+                self::cleanupChromeTmpFiles();
             });
         }
 
@@ -133,8 +141,9 @@ class ChromeProcess
             $pipe->close();
         }
 
-        $this->process->terminate(9);
+        $this->process->terminate();
         $this->process = null;
+        self::$stopped = true;
     }
 
     public function __destruct()
@@ -201,6 +210,27 @@ class ChromeProcess
                 $entry['resolver']->resolve($message);
 
                 return;
+            }
+        }
+    }
+
+    protected static function cleanupChromeTmpFiles(): void
+    {
+        $tmp = sys_get_temp_dir();
+        $paths = [
+            ...(array) glob($tmp.'/.org.chromium.Chromium.*'),
+            ...(array) glob($tmp.'/org.chromium.Chromium.*'),
+        ];
+
+        foreach ($paths as $path) {
+            if (is_dir($path)) {
+                /** @var \SplFileInfo $item */
+                foreach (new \FilesystemIterator($path, \FilesystemIterator::SKIP_DOTS) as $item) {
+                    @unlink($item->getPathname());
+                }
+                @rmdir($path);
+            } else {
+                @unlink($path);
             }
         }
     }

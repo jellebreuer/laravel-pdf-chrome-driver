@@ -13,8 +13,6 @@ class Client
 {
     protected ?ChromeProcess $chrome = null;
 
-    protected string $userDataDir = '';
-
     protected string $filename = 'download.pdf';
 
     protected Orientation $orientation = Orientation::PORTRAIT;
