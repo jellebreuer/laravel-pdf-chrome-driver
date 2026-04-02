@@ -217,10 +217,12 @@ class ChromeProcess
     protected static function cleanupChromeTmpFiles(): void
     {
         $tmp = sys_get_temp_dir();
-        $paths = [
-            ...(array) glob($tmp.'/.org.chromium.Chromium.*'),
-            ...(array) glob($tmp.'/org.chromium.Chromium.*'),
-        ];
+
+        /** @var list<string> $paths */
+        $paths = array_merge(
+            glob($tmp.'/.org.chromium.Chromium.*') ?: [],
+            glob($tmp.'/org.chromium.Chromium.*') ?: [],
+        );
 
         foreach ($paths as $path) {
             if (is_dir($path)) {
