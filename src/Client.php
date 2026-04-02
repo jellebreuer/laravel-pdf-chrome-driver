@@ -50,6 +50,8 @@ class Client
     /** @var array<mixed> */
     protected array $footerViewData = [];
 
+    private const DATA_DIR_PREFIX = 'make-pdf-user-data-dir-';
+
     public function response(): Response
     {
         return response($this->getContent(), 200, [
@@ -249,8 +251,6 @@ class Client
         return view($name, $viewData)->render();
     }
 
-    private const TMP_PREFIX = 'make-pdf-';
-
     /**
      * @phpstan-assert !null $this->chrome
      */
@@ -266,9 +266,11 @@ class Client
             throw new \Exception('Chrome binary not found, please run: php artisan make-pdf:install');
         }
 
-        self::cleanupStaleFiles();
+        $baseDir = self::makePdfTmpDir();
 
-        $userDataDir = sys_get_temp_dir().'/'.self::TMP_PREFIX.Str::random(16);
+        self::cleanupStaleFiles($baseDir);
+
+        $userDataDir = $baseDir.'/'.self::DATA_DIR_PREFIX.Str::random(16);
         File::makeDirectory($userDataDir);
 
         $this->chrome = new ChromeProcess;
@@ -306,37 +308,54 @@ class Client
         });
     }
 
+    protected static function makePdfTmpDir(): string
+    {
+        $tmp = sys_get_temp_dir();
+
+        if (self::onLinux() || self::onLinuxARM()) {
+            $tmp .= '/make-pdf';
+            File::ensureDirectoryExists($tmp);
+        }
+
+        return $tmp;
+    }
+
     /** @return array<string, string> */
     protected function chromeEnvironment(): array
     {
         if (self::onLinux() || self::onLinuxARM()) {
             $display = $_ENV['DISPLAY'] ?? ':0';
 
-            return ['DISPLAY' => is_string($display) ? $display : ':0'];
+            return [
+                'DISPLAY' => is_string($display) ? $display : ':0',
+                'TMPDIR' => self::makePdfTmpDir(),
+            ];
         }
 
         return [];
     }
 
     /**
-     * Remove stale user-data-dir folders and Chromium singleton files from /tmp.
+     * Remove stale user-data-dir folders and Chromium singleton files.
      * Only deletes entries older than double the configured timeout to avoid
      * interfering with parallel processes.
      */
-    protected static function cleanupStaleFiles(): void
+    protected static function cleanupStaleFiles(string $baseDir): void
     {
         /** @var int|float $timeout */
         $timeout = config('make-pdf.timeout', 30);
         $threshold = time() - ((int) $timeout * 2);
-        $tmp = sys_get_temp_dir();
 
         /** @var list<string> $paths */
-        $paths = array_merge(
-            File::glob($tmp.'/'.self::TMP_PREFIX.'*'),
-            File::glob($tmp.'/.org.chromium.Chromium.*'),
-            File::glob($tmp.'/org.chromium.Chromium.*'),
-            File::glob($tmp.'/.com.google.Chrome.*'),
-        );
+        $paths = File::glob($baseDir.'/'.self::DATA_DIR_PREFIX.'*');
+
+        if (self::onLinux() || self::onLinuxARM()) {
+            $paths = array_merge($paths,
+                File::glob($baseDir.'/.org.chromium.Chromium.*'),
+                File::glob($baseDir.'/org.chromium.Chromium.*'),
+                File::glob($baseDir.'/.com.google.Chrome.*'),
+            );
+        }
 
         foreach ($paths as $path) {
             if (File::lastModified($path) > $threshold) {
