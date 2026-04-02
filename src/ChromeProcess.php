@@ -56,8 +56,6 @@ class ChromeProcess
                 if (! self::$stopped) {
                     Loop::stop();
                 }
-
-                self::cleanupChromeTmpFiles();
             });
         }
 
@@ -214,26 +212,4 @@ class ChromeProcess
         }
     }
 
-    protected static function cleanupChromeTmpFiles(): void
-    {
-        $tmp = sys_get_temp_dir();
-
-        /** @var list<string> $paths */
-        $paths = array_merge(
-            glob($tmp.'/.org.chromium.Chromium.*') ?: [],
-            glob($tmp.'/org.chromium.Chromium.*') ?: [],
-        );
-
-        foreach ($paths as $path) {
-            if (is_dir($path)) {
-                /** @var \SplFileInfo $item */
-                foreach (new \FilesystemIterator($path, \FilesystemIterator::SKIP_DOTS) as $item) {
-                    @unlink($item->getPathname());
-                }
-                @rmdir($path);
-            } else {
-                @unlink($path);
-            }
-        }
-    }
 }

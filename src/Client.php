@@ -249,6 +249,8 @@ class Client
         return view($name, $viewData)->render();
     }
 
+    private const TMP_PREFIX = 'make-pdf-';
+
     /**
      * @phpstan-assert !null $this->chrome
      */
@@ -264,18 +266,9 @@ class Client
             throw new \Exception('Chrome binary not found, please run: php artisan make-pdf:install');
         }
 
-        $configPath = config('make-pdf.temp_path');
-        $usingDefaultPath = ! is_string($configPath) || $configPath === '';
-        $storagePath = $usingDefaultPath ? storage_path('make-pdf') : $configPath;
-        File::ensureDirectoryExists($storagePath);
+        self::cleanupStaleFiles();
 
-        if ($usingDefaultPath && ! File::exists($storagePath.'/.gitignore')) {
-            File::put($storagePath.'/.gitignore', "*\n!.gitignore\n");
-        }
-
-        $this->cleanupStaleDirectories($storagePath);
-
-        $userDataDir = $storagePath.'/'.(string) Str::uuid();
+        $userDataDir = sys_get_temp_dir().'/'.self::TMP_PREFIX.Str::random(16);
         File::makeDirectory($userDataDir);
 
         $this->chrome = new ChromeProcess;
@@ -325,19 +318,32 @@ class Client
         return [];
     }
 
-    protected function cleanupStaleDirectories(string $storagePath): void
+    /**
+     * Remove stale user-data-dir folders and Chromium singleton files from /tmp.
+     * Only deletes entries older than double the configured timeout to avoid
+     * interfering with parallel processes.
+     */
+    protected static function cleanupStaleFiles(): void
     {
-        /** @var int $timeout */
+        /** @var int|float $timeout */
         $timeout = config('make-pdf.timeout', 30);
-        $threshold = time() - ($timeout * 2);
+        $threshold = time() - ((int) $timeout * 2);
+        $tmp = sys_get_temp_dir();
 
-        /** @var list<string> $directories */
-        $directories = File::directories($storagePath);
+        /** @var list<string> $paths */
+        $paths = array_merge(
+            File::glob($tmp.'/'.self::TMP_PREFIX.'*'),
+            File::glob($tmp.'/.org.chromium.Chromium.*'),
+            File::glob($tmp.'/org.chromium.Chromium.*'),
+            File::glob($tmp.'/.com.google.Chrome.*'),
+        );
 
-        foreach ($directories as $dir) {
-            if (File::lastModified($dir) < $threshold) {
-                File::deleteDirectory($dir);
+        foreach ($paths as $path) {
+            if (File::lastModified($path) > $threshold) {
+                continue;
             }
+
+            File::isDirectory($path) ? File::deleteDirectory($path) : File::delete($path);
         }
     }
 
