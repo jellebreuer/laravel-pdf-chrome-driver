@@ -2,6 +2,41 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v1.0.0 - 2026-04-02
+
+### What's Changed
+
+#### Architecture overhaul: WebDriver → Chrome DevTools Protocol
+
+This release replaces the Selenium/WebDriver approach with direct communication to `chrome-headless-shell` over the **Chrome DevTools Protocol (CDP) via pipes**. This eliminates the need for ChromeDriver, WebSocket connections, port allocation, and temporary HTML files.
+
+**How it works now:**
+
+- Launches `chrome-headless-shell` with `--remote-debugging-pipe`
+- Communicates over fd 3 (write) and fd 4 (read) using null-byte delimited JSON
+- Uses `react/child-process` for process management and `react/async` for non-blocking I/O
+- HTML is injected via `Page.setDocumentContent` — no temp files written to disk
+
+**Key improvements:**
+
+- Faster PDF generation — no ChromeDriver polling, no port scanning, no HTTP overhead
+- No port conflicts — pipes instead of `--remote-debugging-port`
+- Safer process cleanup — SIGTERM → SIGKILL with configurable timeout
+- Automatic cleanup of stale user-data-dir directories from crashed processes
+- Chrome flags aligned with [Gotenberg](https://github.com/gotenberg/gotenberg) for better stability
+- Configurable timeout (`make-pdf.timeout`)
+
+#### Breaking Changes
+
+- **Dropped Windows support** — CDP pipes require a Unix-based OS. `ext-pcntl` is now a required extension, which prevents installation on Windows.
+- **Removed `php-webdriver/webdriver` dependency** — replaced by `react/child-process` and `react/async`
+- **Removed `make-pdf:cleanup` command** — orphaned Chrome processes are no longer possible thanks to the SIGTERM → SIGKILL shutdown sequence with timeout enforcement
+- **Removed `chromedriver_path` config option** — ChromeDriver is no longer used
+- **Removed `Client::onWindows32()` and `Client::onWindows64()`** — replaced by `Client::onWindows()`
+- **Removed `Client::chromeDriverBinary()`**, `Client::getFreePort()`, `Client::isPortFree()`
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-make-pdf/compare/v0.3.1...v1.0.0-alpha
+
 ## v0.3.1 - 2026-03-30
 
 ### What's Changed
