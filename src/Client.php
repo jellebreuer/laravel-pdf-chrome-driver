@@ -187,6 +187,9 @@ class Client
 
         try {
             $this->startBrowser();
+            /** @var int|float $timeout */
+            $timeout = config('make-pdf.timeout', 30);
+            $this->chrome->setTimeout((float) $timeout);
 
             /** @var array{result: array{targetId: string}} $target */
             $target = $this->chrome->send('Target.createTarget', ['url' => 'about:blank']);
@@ -263,10 +266,12 @@ class Client
             throw new \Exception('Chrome binary not found, please run: php artisan make-pdf:install');
         }
 
-        $storagePath = storage_path('make-pdf');
+        $configPath = config('make-pdf.temp_path');
+        $usingDefaultPath = ! is_string($configPath) || $configPath === '';
+        $storagePath = $usingDefaultPath ? storage_path('make-pdf') : $configPath;
         File::ensureDirectoryExists($storagePath);
 
-        if (! File::exists($storagePath.'/.gitignore')) {
+        if ($usingDefaultPath && ! File::exists($storagePath.'/.gitignore')) {
             File::put($storagePath.'/.gitignore', "*\n!.gitignore\n");
         }
 
@@ -319,7 +324,9 @@ class Client
 
     protected function cleanupStaleDirectories(string $storagePath): void
     {
-        $threshold = time() - 300;
+        /** @var int $timeout */
+        $timeout = config('make-pdf.timeout', 30);
+        $threshold = time() - ($timeout * 2);
 
         /** @var list<string> $directories */
         $directories = File::directories($storagePath);

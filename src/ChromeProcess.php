@@ -15,6 +15,8 @@ class ChromeProcess
 
     protected int $messageId = 0;
 
+    protected float $deadline = 0;
+
     /** @var list<array{match: callable, resolver: Deferred<array<string, mixed>>}> */
     protected array $waitingForResponse = [];
 
@@ -26,6 +28,7 @@ class ChromeProcess
     {
         $this->messageId = 0;
         $this->waitingForResponse = [];
+        $this->deadline = microtime(true) + 30;
 
         $cmd = 'exec '.implode(' ', array_map('escapeshellarg', $command));
 
@@ -65,12 +68,20 @@ class ChromeProcess
     }
 
     /**
+     * Set a shared deadline for all subsequent send() calls.
+     */
+    public function setTimeout(float $seconds): void
+    {
+        $this->deadline = microtime(true) + $seconds;
+    }
+
+    /**
      * Send a CDP command and wait for Chrome to respond.
      *
      * @param  array<string, mixed>  $params
      * @return array<string, mixed>
      */
-    public function send(string $method, array $params = [], ?string $sessionId = null, float $timeout = 30): array
+    public function send(string $method, array $params = [], ?string $sessionId = null): array
     {
         if ($this->process === null) {
             throw new \RuntimeException('Chrome process not started');
@@ -92,7 +103,6 @@ class ChromeProcess
         // Wait until Chrome sends back a response with the same id
         return $this->waitForMessage(
             fn (array $response) => ($response['id'] ?? null) === $id,
-            $timeout
         );
     }
 
@@ -101,11 +111,10 @@ class ChromeProcess
      *
      * @return array<string, mixed>
      */
-    public function waitForEvent(string $event, float $timeout = 30): array
+    public function waitForEvent(string $event): array
     {
         return $this->waitForMessage(
             fn (array $response) => ($response['method'] ?? null) === $event,
-            $timeout
         );
     }
 
@@ -114,7 +123,7 @@ class ChromeProcess
         $this->process?->on('exit', $callback);
     }
 
-    public function stop(): void
+    public function stop(float $timeout = 2): void
     {
         if ($this->process === null) {
             return;
@@ -124,7 +133,25 @@ class ChromeProcess
             $pipe->close();
         }
 
-        $this->process->terminate();
+        if (! $this->process->isRunning()) {
+            $this->process = null;
+
+            return;
+        }
+
+        // Graceful shutdown, then force kill if Chrome doesn't exit in time
+        $process = $this->process;
+        $process->terminate(15);
+
+        $deadline = microtime(true) + $timeout;
+        while ($process->isRunning() && microtime(true) < $deadline) {
+            usleep(10000);
+        }
+
+        if ($process->isRunning()) {
+            $process->terminate(9);
+        }
+
         $this->process = null;
     }
 
@@ -142,14 +169,19 @@ class ChromeProcess
      * @param  callable(array<string, mixed>): bool  $match
      * @return array<string, mixed>
      */
-    protected function waitForMessage(callable $match, float $timeout): array
+    protected function waitForMessage(callable $match): array
     {
+        $remaining = $this->deadline - microtime(true);
+        if ($remaining <= 0) {
+            throw new \RuntimeException('CDP timeout');
+        }
+
         /** @var Deferred<array<string, mixed>> $resolver */
         $resolver = new Deferred;
 
         $this->waitingForResponse[] = ['match' => $match, 'resolver' => $resolver];
 
-        $timer = Loop::addTimer($timeout, function () use ($resolver): void {
+        $timer = Loop::addTimer($remaining, function () use ($resolver): void {
             $resolver->reject(new \RuntimeException('CDP timeout'));
         });
 
