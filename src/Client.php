@@ -308,10 +308,9 @@ class Client
             '--remote-debugging-pipe',
         ], $this->chromeEnvironment());
 
-        // Clean up user-data-dir after Chrome exits
         $this->chrome->onExit(function () use ($userDataDir): void {
             if (is_dir($userDataDir)) {
-                File::deleteDirectory($userDataDir);
+                self::deleteDirectory($userDataDir);
             }
         });
     }
@@ -342,6 +341,22 @@ class Client
                 File::deleteDirectory($dir);
             }
         }
+    }
+
+    protected static function deleteDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        /** @var \SplFileInfo $item */
+        foreach (new \FilesystemIterator($directory, \FilesystemIterator::SKIP_DOTS) as $item) {
+            $item->isDir() && ! $item->isLink()
+                ? self::deleteDirectory($item->getPathname())
+                : @unlink($item->getPathname());
+        }
+
+        @rmdir($directory);
     }
 
     protected function stopBrowser(): void
