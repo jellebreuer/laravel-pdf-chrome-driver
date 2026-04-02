@@ -5,6 +5,7 @@ namespace Breuer\MakePDF;
 use React\ChildProcess\Process;
 use React\EventLoop\Loop;
 use React\Promise\Deferred;
+use React\Stream\WritableStreamInterface;
 
 use function React\Async\await;
 
@@ -84,7 +85,7 @@ class ChromeProcess
         }
 
         // Write the command to Chrome over CDP pipe 3
-        /** @var \React\Stream\WritableStreamInterface $cdp_write */
+        /** @var WritableStreamInterface $cdp_write */
         $cdp_write = $this->process->pipes[3];
         $cdp_write->write(json_encode($message)."\0");
 

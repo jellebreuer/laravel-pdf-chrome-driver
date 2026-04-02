@@ -140,7 +140,7 @@ it('throws on cdp errors', function () {
         $process->stop();
         @rmdir($user_data_dir);
     }
-})->throws(\RuntimeException::class, 'CDP error:');
+})->throws(RuntimeException::class, 'CDP error:');
 
 it('can stop without starting', function () {
     $process = new ChromeProcess;
