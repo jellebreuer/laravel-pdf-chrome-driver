@@ -50,7 +50,7 @@ class Client
     /** @var array<mixed> */
     protected array $footerViewData = [];
 
-    private const DATA_DIR_PREFIX = 'make-pdf-user-data-dir-';
+    private const DATA_DIR_PREFIX = 'user-data-dir-';
 
     public function response(): Response
     {
@@ -310,12 +310,8 @@ class Client
 
     protected static function makePdfTmpDir(): string
     {
-        $tmp = sys_get_temp_dir();
-
-        if (self::onLinux() || self::onLinuxARM()) {
-            $tmp .= '/make-pdf';
-            File::ensureDirectoryExists($tmp);
-        }
+        $tmp = sys_get_temp_dir().'/laravel-make-pdf';
+        File::ensureDirectoryExists($tmp);
 
         return $tmp;
     }
@@ -323,16 +319,14 @@ class Client
     /** @return array<string, string> */
     protected function chromeEnvironment(): array
     {
+        $env = ['TMPDIR' => self::makePdfTmpDir()];
+
         if (self::onLinux() || self::onLinuxARM()) {
             $display = $_ENV['DISPLAY'] ?? ':0';
-
-            return [
-                'DISPLAY' => is_string($display) ? $display : ':0',
-                'TMPDIR' => self::makePdfTmpDir(),
-            ];
+            $env['DISPLAY'] = is_string($display) ? $display : ':0';
         }
 
-        return [];
+        return $env;
     }
 
     /**
@@ -347,15 +341,12 @@ class Client
         $threshold = time() - ((int) $timeout * 2);
 
         /** @var list<string> $paths */
-        $paths = File::glob($baseDir.'/'.self::DATA_DIR_PREFIX.'*');
-
-        if (self::onLinux() || self::onLinuxARM()) {
-            $paths = array_merge($paths,
-                File::glob($baseDir.'/.org.chromium.Chromium.*'),
-                File::glob($baseDir.'/org.chromium.Chromium.*'),
-                File::glob($baseDir.'/.com.google.Chrome.*'),
-            );
-        }
+        $paths = array_merge(
+            File::glob($baseDir.'/'.self::DATA_DIR_PREFIX.'*'),
+            File::glob($baseDir.'/.org.chromium.Chromium.*'),
+            File::glob($baseDir.'/org.chromium.Chromium.*'),
+            File::glob($baseDir.'/.com.google.Chrome.*'),
+        );
 
         foreach ($paths as $path) {
             if (File::lastModified($path) > $threshold) {
