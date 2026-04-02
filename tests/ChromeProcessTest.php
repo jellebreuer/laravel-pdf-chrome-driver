@@ -146,7 +146,7 @@ it('throws on cdp errors', function () {
         $this->process->stop();
         @rmdir($userDataDir);
     }
-})->throws(\RuntimeException::class, 'CDP error:');
+})->throws(RuntimeException::class, 'CDP error:');
 
 it('can stop without starting', function () {
     $this->process->stop();
