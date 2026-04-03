@@ -31,7 +31,7 @@ php artisan make-pdf:install
 To customize the package configuration, publish the configuration file:
 
 ```bash
-php artisan vendor:publish --tag="laravel-make-pdf-config"
+php artisan vendor:publish --tag="make-pdf-config"
 ```
 
 Here is the content of the published config file:
