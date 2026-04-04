@@ -1,12 +1,14 @@
 {
-    "name": "breuer/laravel-make-pdf",
-    "description": "Convert HTML to PDF using a headless Chrome instance",
+    "name": "breuer/laravel-pdf-chrome-driver",
+    "description": "Chrome DevTools Protocol driver for spatie/laravel-pdf",
     "keywords": [
         "breuer",
         "laravel",
-        "laravel-make-pdf"
+        "laravel-pdf-chrome-driver",
+        "chrome",
+        "pdf"
     ],
-    "homepage": "https://github.com/jellebreuer/laravel-make-pdf",
+    "homepage": "https://github.com/jellebreuer/laravel-pdf-chrome-driver",
     "license": "MIT",
     "authors": [
         {
@@ -45,7 +47,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Breuer\\MakePDF\\": "src/"
+            "Breuer\\ChromeDriver\\": "src/"
         },
         "files": [
             "src/functions.php"
@@ -53,7 +55,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Breuer\\MakePDF\\Tests\\": "tests/"
+            "Breuer\\ChromeDriver\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -83,7 +85,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Breuer\\MakePDF\\PDFServiceProvider"
+                "Breuer\\ChromeDriver\\ChromeDriverServiceProvider"
             ]
         }
     },

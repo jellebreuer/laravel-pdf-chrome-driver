@@ -1,7 +1,7 @@
 <?php
 
-use Breuer\MakePDF\ChromeProcess;
-use Breuer\MakePDF\Platform;
+use Breuer\ChromeDriver\ChromeProcess;
+use Breuer\ChromeDriver\Platform;
 
 function chromeCommand(string $userDataDir): array
 {

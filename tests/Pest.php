@@ -1,6 +1,6 @@
 <?php
 
-use Breuer\MakePDF\Tests\TestCase;
+use Breuer\ChromeDriver\Tests\TestCase;
 use Illuminate\Testing\TestResponse;
 
 uses(TestCase::class)->in(__DIR__);

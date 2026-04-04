@@ -1,6 +1,6 @@
 <?php
 
-// config for Breuer/MakePDF
+// config for Breuer/PdfChromeDriver
 return [
 
     /*
@@ -9,8 +9,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | By default, this package uses bundled Chrome binaries that are downloaded
-    | via `php artisan make-pdf:install`. However, you can specify custom paths
-    | to use system-installed binaries instead.
+    | via `php artisan pdf-chrome-driver:install`. However, you can specify
+    | custom paths to use system-installed binaries instead.
     |
     | This is particularly useful for:
     | - Linux ARM64 environments (e.g., Docker on Apple Silicon)
@@ -21,7 +21,7 @@ return [
     |
     */
 
-    'chrome_path' => env('MAKE_PDF_CHROME_PATH'),
+    'chrome_path' => env('PDF_CHROME_DRIVER_CHROME_PATH'),
 
     /*
     |--------------------------------------------------------------------------
@@ -34,6 +34,6 @@ return [
     |
     */
 
-    'timeout' => env('MAKE_PDF_TIMEOUT', 10),
+    'timeout' => env('PDF_CHROME_DRIVER_TIMEOUT', 10),
 
 ];

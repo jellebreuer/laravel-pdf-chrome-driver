@@ -1,18 +1,18 @@
 <?php
 
-namespace Breuer\MakePDF\Drivers;
+namespace Breuer\ChromeDriver\Drivers;
 
-use Breuer\MakePDF\ChromeProcess;
-use Breuer\MakePDF\Platform;
+use Breuer\ChromeDriver\ChromeProcess;
+use Breuer\ChromeDriver\Platform;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Spatie\LaravelPdf\Drivers\PdfDriver;
 use Spatie\LaravelPdf\Enums\Orientation;
 use Spatie\LaravelPdf\PdfOptions;
 
-class MakePdfDriver implements PdfDriver
+class ChromeDriver implements PdfDriver
 {
-    private const RUN_DIR_PREFIX = 'laravel-make-pdf-';
+    private const RUN_DIR_PREFIX = 'laravel-pdf-chrome-driver-';
 
     /** @param array<string, mixed> $config */
     public function __construct(protected array $config = []) {}
@@ -69,7 +69,7 @@ class MakePdfDriver implements PdfDriver
             $chrome = $this->startBrowser();
 
             /** @var int|float $timeout */
-            $timeout = $this->config['timeout'] ?? config('make-pdf.timeout', 10);
+            $timeout = $this->config['timeout'] ?? config('pdf-chrome-driver.timeout', 10);
             $chrome->setTimeout((float) $timeout);
 
             /** @var array{result: array{targetId: string}} $target */
@@ -136,7 +136,7 @@ class MakePdfDriver implements PdfDriver
         $chrome_binary = Platform::chromeHeadlessBinary();
 
         if (! File::exists($chrome_binary)) {
-            throw new \RuntimeException('Chrome binary not found, please run: php artisan make-pdf:install');
+            throw new \RuntimeException('Chrome binary not found, please run: php artisan pdf-chrome-driver:install');
         }
 
         $run_dir = sys_get_temp_dir().'/'.self::RUN_DIR_PREFIX.Str::random(16);

@@ -1,8 +1,8 @@
 providers:
-  - Breuer\MakePDF\PDFServiceProvider
+  - Breuer\ChromeDriver\ChromeDriverServiceProvider
 
 env:
-  - LARAVEL_PDF_DRIVER=make-pdf
+  - LARAVEL_PDF_DRIVER=chrome
 
 workbench:
   discovers:

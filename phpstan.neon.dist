@@ -5,8 +5,7 @@ parameters:
         - config
     checkOctaneCompatibility: true
     checkModelProperties: true
-    excludePaths:
-        - src\Facades\*.php
+    excludePaths: []
     ignoreErrors:
         -
             message: "#Called 'env' outside of the config directory#"

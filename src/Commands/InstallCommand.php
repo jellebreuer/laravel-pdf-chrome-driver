@@ -1,19 +1,19 @@
 <?php
 
-namespace Breuer\MakePDF\Commands;
+namespace Breuer\ChromeDriver\Commands;
 
-use Breuer\MakePDF\Platform;
+use Breuer\ChromeDriver\Platform;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use ZipArchive;
 
-use function Breuer\MakePDF\package_path;
+use function Breuer\ChromeDriver\package_path;
 
 class InstallCommand extends Command
 {
-    public $signature = 'make-pdf:install';
+    public $signature = 'pdf-chrome-driver:install';
 
     public $description = 'Download latest stable chrome-headless-shell';
 
@@ -32,10 +32,10 @@ class InstallCommand extends Command
             $this->info('To use this package on Linux ARM64, install Chromium via your package manager or some other route.');
             $this->newLine();
             $this->info('Then configure the binary paths in your .env file:');
-            $this->line('  MAKE_PDF_CHROME_PATH=/usr/bin/chromium');
+            $this->line('  PDF_CHROME_DRIVER_CHROME_PATH=/usr/bin/chromium');
             $this->newLine();
             $this->info('Or publish and edit the config file:');
-            $this->line('  php artisan vendor:publish --tag=make-pdf-config');
+            $this->line('  php artisan vendor:publish --tag=pdf-chrome-driver-config');
 
             return self::SUCCESS;
         }

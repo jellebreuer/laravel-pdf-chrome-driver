@@ -60,7 +60,7 @@ jobs:
         run: composer show -D
 
       - name: Install browsers
-        run: vendor/bin/testbench make-pdf:install
+        run: vendor/bin/testbench pdf-chrome-driver:install
 
       - name: Execute tests
         run: vendor/bin/pest --ci

@@ -1,6 +1,6 @@
 <?php
 
-namespace Breuer\MakePDF;
+namespace Breuer\ChromeDriver;
 
 use React\ChildProcess\Process;
 use React\EventLoop\Loop;

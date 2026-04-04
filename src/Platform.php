@@ -1,12 +1,12 @@
 <?php
 
-namespace Breuer\MakePDF;
+namespace Breuer\ChromeDriver;
 
 class Platform
 {
     public static function chromeHeadlessBinary(): string
     {
-        $config_path = config('make-pdf.chrome_path');
+        $config_path = config('pdf-chrome-driver.chrome_path');
         if (is_string($config_path) && $config_path !== '') {
             return $config_path;
         }
@@ -15,8 +15,8 @@ class Platform
             throw new \RuntimeException(
                 'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
                 'Please install Chromium via your package manager or some other route '.
-                'and configure the binary paths in config/make-pdf.php or via environment variables: '.
-                'MAKE_PDF_CHROME_PATH'
+                'and configure the binary paths in config/pdf-chrome-driver.php or via environment variables: '.
+                'PDF_CHROME_DRIVER_CHROME_PATH'
             );
         }
 

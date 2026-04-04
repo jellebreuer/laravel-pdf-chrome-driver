@@ -1,20 +1,22 @@
-# laravel-make-pdf
+# laravel-pdf-chrome-driver
 
-A Laravel package that generates PDFs by launching `chrome-headless-shell` and communicating with it directly over the Chrome DevTools Protocol (CDP) via pipes.
+A Chrome DevTools Protocol driver for `spatie/laravel-pdf`. Launches `chrome-headless-shell` and communicates with it directly over CDP pipes.
 
 ## Architecture
 
-- **`Client.php`** — Public API (`PDF::html()->raw()`, `->response()`, `->download()`, `->save()`). Manages the browser lifecycle and sends CDP commands to render HTML to PDF.
+- **`Drivers/ChromeDriver.php`** — Implements `Spatie\LaravelPdf\Drivers\PdfDriver`. Renders HTML to PDF via Chrome CDP. Maps spatie's PdfOptions to CDP `Page.printToPDF` parameters.
 - **`ChromeProcess.php`** — Wraps `react/child-process` to launch `chrome-headless-shell` with `--remote-debugging-pipe`. Communicates via CDP over fd 3 (write) and fd 4 (read) using `\0`-delimited JSON. Uses React event loop + `react/async` `await()` for blocking waits on async streams.
+- **`ChromeDriverServiceProvider.php`** — Registers the `chrome` driver with the Laravel container and overrides the `PdfDriver::class` binding when configured.
 - **`Commands/InstallCommand.php`** — Downloads `chrome-headless-shell` binary from Google's CDN.
-- **`Facades/PDF.php`** — Laravel facade for `Client`.
+- **`Platform.php`** — Platform detection and binary path resolution.
 
 ## Key design decisions
 
 - **No WebSocket** — Uses `--remote-debugging-pipe` (fd 3/4) instead of `--remote-debugging-port`. This avoids port allocation, network exposure, and polling for Chrome to be ready.
 - **No temp files** — HTML is injected via `Page.setDocumentContent` (CDP) instead of writing to a temp file and using `file://`.
 - **`react/child-process`** — Used to launch Chrome with custom file descriptors (fd 3/4) for CDP pipe communication. React's event loop handles async I/O on the pipes, with `react/async` `await()` to block until CDP responses arrive.
-- **User data dir cleanup** — Each run creates a unique `storage/make-pdf/{uuid}` directory passed as `--user-data-dir`. Cleaned up after Chrome stops, with retry logic. The `deleteDirectory` method is native PHP (no Laravel `File` facade) so it's safe to call from `__destruct`.
+- **User data dir cleanup** — Each run creates a unique temp directory passed as `--user-data-dir`. Cleaned up after Chrome stops. The `deleteDirectory` method is native PHP (no Laravel `File` facade) so it's safe to call from `__destruct`.
+- **Optional spatie dependency** — `spatie/laravel-pdf` is in `suggest`, not `require`. Guards use `interface_exists(PdfDriver::class)` so the package doesn't break if spatie isn't installed.
 
 ## CDP flow
 
@@ -36,7 +38,7 @@ vendor/bin/pest tests/PdfTest.php            # integration tests
 ## Static analysis
 
 ```bash
-composer analyse   # runs phpstan via larastan
+vendor/bin/phpstan analyse --memory-limit=-1
 ```
 
 ## Code style
@@ -45,11 +47,13 @@ composer analyse   # runs phpstan via larastan
 vendor/bin/pint    # Laravel Pint (PSR-12 / Laravel preset)
 ```
 
+Always use `php` and `composer` from PATH, never use the full Herd binary path.
+
 Uses camelCase for variables and methods.
 
 ## Platform support
 
-Binaries are downloaded per-platform by `make-pdf:install`. Platform detection is in `Client::onMacARM()`, `onLinux()`, etc. Linux ARM64 requires manual Chromium installation.
+Binaries are downloaded per-platform by `pdf-chrome-driver:install`. Platform detection is in `Platform::onMacARM()`, `onLinux()`, etc. Linux ARM64 requires manual Chromium installation.
 
 <laravel-boost-guidelines>
 === foundation rules ===
