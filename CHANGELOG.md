@@ -2,6 +2,39 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v2.0.0 - 2026-04-04
+
+### What's Changed
+
+#### Rewrite: standalone package → spatie/laravel-pdf driver
+
+This package is now a **driver for [spatie/laravel-pdf](https://github.com/spatie/laravel-pdf)** instead of a standalone PDF generation package. All PDF options (format, margins, orientation, headers/footers, etc.) are now handled through spatie's API.
+
+**How to upgrade:**
+
+1. Install `spatie/laravel-pdf` if you haven't already
+2. Set `LARAVEL_PDF_DRIVER=chrome` in your `.env`
+3. Replace `Breuer\MakePDF\Facades\PDF` usage with `Spatie\LaravelPdf\Facades\Pdf`
+4. Run `php artisan pdf-chrome-driver:install` to download Chrome
+
+**Package renamed:**
+
+- Composer: `breuer/laravel-make-pdf` → `breuer/laravel-pdf-chrome-driver`
+- Namespace: `Breuer\MakePDF` → `Breuer\ChromeDriver`
+- Config: `make-pdf.php` → `pdf-chrome-driver.php`
+- Artisan: `make-pdf:install` → `pdf-chrome-driver:install`
+- Env: `MAKE_PDF_CHROME_PATH` → `PDF_CHROME_DRIVER_CHROME_PATH`
+
+**Removed:**
+
+- `Client.php` — replaced by `Drivers\ChromeDriver.php` implementing `Spatie\LaravelPdf\Drivers\PdfDriver`
+- `Facades\PDF.php` — use `Spatie\LaravelPdf\Facades\Pdf` instead
+- `Enums\Format.php`, `Enums\Orientation.php`, `Enums\Unit.php` — use spatie's enums
+- Standalone API methods (`->response()`, `->download()`, `->raw()`, `->save()`) — use spatie's API
+- 
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-pdf-chrome-driver/compare/v1.0.0...v2.0.0
+
 ## v1.0.0 - 2026-04-02
 
 ### What's Changed
