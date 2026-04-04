@@ -1,207 +1,92 @@
-# Convert HTML to PDF with headless Chrome
+# Chrome DevTools Protocol driver for spatie/laravel-pdf
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/breuer/laravel-make-pdf.svg?style=flat-square)](https://packagist.org/packages/breuer/laravel-make-pdf)
-[![Total Downloads](https://img.shields.io/packagist/dt/breuer/laravel-make-pdf.svg?style=flat-square)](https://packagist.org/packages/breuer/laravel-make-pdf)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-make-pdf/run-tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/jellebreuer/laravel-make-pdf/actions/workflows/run-tests.yml)
-[![GitHub PHPStan Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-make-pdf/phpstan.yml?branch=master&label=phpstan&style=flat-square)](https://github.com/jellebreuer/laravel-make-pdf/actions/workflows/phpstan.yml)
-[![GitHub Pint Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-make-pdf/fix-php-code-style-issues.yml?branch=master&label=laravel%20pint&style=flat-square)](https://github.com/jellebreuer/laravel-make-pdf/actions/workflows/fix-php-code-style-issues.yml)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/breuer/laravel-pdf-chrome-driver.svg?style=flat-square)](https://packagist.org/packages/breuer/laravel-pdf-chrome-driver)
+[![Total Downloads](https://img.shields.io/packagist/dt/breuer/laravel-pdf-chrome-driver.svg?style=flat-square)](https://packagist.org/packages/breuer/laravel-pdf-chrome-driver)
+[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-pdf-chrome-driver/run-tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/jellebreuer/laravel-pdf-chrome-driver/actions/workflows/run-tests.yml)
+[![GitHub PHPStan Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-pdf-chrome-driver/phpstan.yml?branch=master&label=phpstan&style=flat-square)](https://github.com/jellebreuer/laravel-pdf-chrome-driver/actions/workflows/phpstan.yml)
+[![GitHub Pint Action Status](https://img.shields.io/github/actions/workflow/status/jellebreuer/laravel-pdf-chrome-driver/fix-php-code-style-issues.yml?branch=master&label=laravel%20pint&style=flat-square)](https://github.com/jellebreuer/laravel-pdf-chrome-driver/actions/workflows/fix-php-code-style-issues.yml)
 
-This package allows you to easily convert HTML to PDF using headless Chrome, without needing Node.js.
-It communicates directly with `chrome-headless-shell` over the Chrome DevTools Protocol (CDP) via pipes.
-Inspired by Spatie's [laravel-pdf](https://github.com/spatie/laravel-pdf) package, but with a pure PHP approach — no Puppeteer, no Docker, no Cloudflare, no python, no Node.
+A Chrome DevTools Protocol (CDP) driver for [spatie/laravel-pdf](https://github.com/spatie/laravel-pdf). Renders PDFs by communicating directly with `chrome-headless-shell` over CDP pipes — no Node.js, no Puppeteer, no Docker, no external services.
 
 ## Requirements
 
-Laravel Make PDF requires **PHP 8.2+** and **Laravel 11+**.
+- **PHP 8.2+**
+- **Laravel 11+**
+- **[spatie/laravel-pdf](https://github.com/spatie/laravel-pdf) ^2.0**
 
-## Installation & Setup
+## Installation
 
-You can install the package via Composer:
-
-```bash
-composer require breuer/laravel-make-pdf
-```
-
-After installation, download headless Chrome using the following Artisan command:
+Install the package via Composer:
 
 ```bash
-php artisan make-pdf:install
+composer require breuer/laravel-pdf-chrome-driver
 ```
 
-To customize the package configuration, publish the configuration file:
+Download the headless Chrome binary:
 
 ```bash
-php artisan vendor:publish --tag="make-pdf-config"
+php artisan pdf-chrome-driver:install
 ```
 
-Here is the content of the published config file:
+Set the driver in your `config/laravel-pdf.php`:
 
 ```php
-return [
-    // Configuration options will go here
-];
+'driver' => 'chrome',
 ```
+
+Or via your `.env` file:
+
+```
+LARAVEL_PDF_DRIVER=chrome
+```
+
+That's it. All `spatie/laravel-pdf` functionality now uses Chrome CDP under the hood.
 
 ## Usage
 
-Converting HTML to PDF with this package is simple and efficient. Below are a few common use cases:
-
-### Basic Example
-
-Convert a Blade view to a PDF and stream it to the browser:
+This package is a driver for `spatie/laravel-pdf` — use spatie's API as documented in their [README](https://github.com/spatie/laravel-pdf):
 
 ```php
-use Breuer\MakePDF\Facades\PDF;
+use Spatie\LaravelPdf\Facades\Pdf;
 
-Route::get('/', function () {
-    return PDF::view('view.name', [])->response();
+Route::get('/pdf', function () {
+    return Pdf::view('invoice', ['order' => $order]);
 });
 ```
 
-Or force the browser to download the PDF file
+## Configuration
+
+Publish the config file to customize Chrome binary path or timeout:
+
+```bash
+php artisan vendor:publish --tag="pdf-chrome-driver-config"
+```
 
 ```php
-return PDF::view('view.name', [])->download();
+return [
+    'path' => env('PDF_CHROME_DRIVER_CHROME_PATH'),
+    'timeout' => env('PDF_CHROME_DRIVER_TIMEOUT', 10),
+];
 ```
 
-### Options
+### Linux ARM64
 
-#### Render Raw HTML:
+Pre-built Chrome binaries are not available for Linux ARM64. Install Chromium via your package manager and point to it:
 
-Instead of passing a Blade view, you can directly pass HTML:
-
-```php
-PDF::html('<h1>Hello World</h1>')
+```
+PDF_CHROME_DRIVER_CHROME_PATH=/usr/bin/chromium
 ```
 
-#### Header and Footer
+## How it works
 
-You can include a view in the header and footer of every page:
+Unlike other drivers that shell out to Node.js or rely on external services, this driver:
 
-```php
-PDF::view('view.name', [])
-    ->headerView('view.header')
-    ->footerView('view.footer')
-    ->response();
-```
+1. Launches `chrome-headless-shell` with `--remote-debugging-pipe`
+2. Communicates over CDP via file descriptors (fd 3/4) — no WebSocket, no port allocation
+3. Injects HTML via `Page.setDocumentContent` — no temp files
+4. Generates PDF via `Page.printToPDF`
 
-Alternatively, set raw HTML for the header and footer:
-
-```php
-->headerHtml('<div>My header</div>')
-->footerHtml('<div>My footer</div>')
-```
-
-In the header or footer, the following placeholders can be used and will be replaced with their print-specific values:
-
-```html
-<span class="date"></span>
-<span class="title"></span>
-<span class="pageNumber"></span>
-<span class="totalPages"></span>
-```
-
-**Note:** The header and footer do not inherit the same CSS as the main content, and the default font size is 0. You should include any required CSS directly in the header/footer. Here’s an example of a styled footer view:
-
-```html
-<style>
-    footer {
-        font-size: 13px;
-        color: black;
-    }
-</style>
-<footer>
-    <span class="date"></span>
-    <span class="pageNumber"></span> / <span class="totalPages"></span>
-</footer>
-```
-
-#### Landscape Orientation
-
-Switch the page orientation to landscape:
-
-```php
-use Breuer\MakePDF\Enums\Orientation;
-
-PDF::landscape()
-```
-
-#### Set Paper Format
-
-Specify a standard paper format:
-
-```php
-use Breuer\MakePDF\Enums\Format;
-
-PDF::format(Format::A4)
-```
-
-The following formats are available: `LETTER`, `LEGAL`, `A0`, `A1`, `A2`, `A3`, `A4`, `A5`, `A6`.
-
-#### Set Custom Paper Size
-
-Set a custom paper size, specifying height and width in inches (or another unit):
-
-```php
-use Breuer\MakePDF\Enums\Unit;
-
-PDF::paperSize($height, $width)  // Uses inches by default
-PDF::paperSize(29.7, 21, Unit::CENTIMETER)  // Uses centimeters and converts to inches
-```
-
-#### Set Margins
-
-Set custom margins for the PDF document:
-
-```php
-use Breuer\MakePDF\Enums\Unit;
-
-PDF::margins($top, $right, $bottom, $left) // Uses inches by default
-PDF::margins(2.54, 1.27, 2.54, 1.27, Unit::CENTIMETER)  // Centimeters, converted to inches
-```
-
-#### Custom Filename
-
-Define a custom name for the PDF when downloading from the browser.
-The `.pdf` extension is automatically appended if omitted:
-
-```php
-PDF::view('view.name', [])
-    ->name('custom_filename')
-    ->response();
-```
-
-#### Save to File
-
-Use the `save` method to store the PDF at a given file path:
-
-```php
-->save('/path/to/save/yourfile.pdf')
-```
-
-#### Retrieve PDF as a String
-
-To obtain the raw PDF content as a string, use the `raw` method:
-
-```php
-$content = PDF::view('view.name', [])->raw();
-```
-
-#### Stream PDF
-
-Display the PDF directly in the browser without saving it to disk:
-
-```php
-->response()
-```
-
-#### Force Download
-
-Prompt the browser to immediately download the PDF:
-
-```php
-->download()
-```
+Each request gets an isolated Chrome process with its own temp directory, cleaned up automatically.
 
 ## License
 

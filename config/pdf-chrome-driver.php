@@ -17,11 +17,11 @@ return [
     | - Environments where you prefer to use system-managed Chromium
     |
     | Then configure the path:
-    |   'chrome_path' => '/usr/bin/chromium',
+    |   'path' => '/usr/bin/chromium',
     |
     */
 
-    'chrome_path' => env('PDF_CHROME_DRIVER_CHROME_PATH'),
+    'path' => env('PDF_CHROME_DRIVER_CHROME_PATH'),
 
     /*
     |--------------------------------------------------------------------------

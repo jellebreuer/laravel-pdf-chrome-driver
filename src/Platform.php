@@ -6,7 +6,7 @@ class Platform
 {
     public static function chromeHeadlessBinary(): string
     {
-        $config_path = config('pdf-chrome-driver.chrome_path');
+        $config_path = config('pdf-chrome-driver.path');
         if (is_string($config_path) && $config_path !== '') {
             return $config_path;
         }
