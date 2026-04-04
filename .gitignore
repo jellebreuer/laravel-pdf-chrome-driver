@@ -35,3 +35,4 @@ phpstan.neon
 /playwright
 /process
 /laravel-pdf
+/laravel-pdf-chrome-driver

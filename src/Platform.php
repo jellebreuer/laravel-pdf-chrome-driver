@@ -6,7 +6,7 @@ class Platform
 {
     public static function chromeHeadlessBinary(): string
     {
-        $config_path = config('pdf-chrome-driver.path');
+        $config_path = config('laravel-pdf.chrome.path');
         if (is_string($config_path) && $config_path !== '') {
             return $config_path;
         }
@@ -15,8 +15,8 @@ class Platform
             throw new \RuntimeException(
                 'Linux ARM64 detected. Pre-built Chrome binaries are not available for this platform. '.
                 'Please install Chromium via your package manager or some other route '.
-                'and configure the binary paths in config/pdf-chrome-driver.php or via environment variables: '.
-                'PDF_CHROME_DRIVER_CHROME_PATH'
+                'and configure the path in your laravel-pdf.php config under the "chrome" key, '.
+                'or set the LARAVEL_PDF_CHROME_PATH environment variable.'
             );
         }
 

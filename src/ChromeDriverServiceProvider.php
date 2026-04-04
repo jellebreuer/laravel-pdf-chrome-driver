@@ -13,26 +13,22 @@ class ChromeDriverServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
     {
-        /*
-         * This class is a Package Service Provider
-         *
-         * More info: https://github.com/spatie/laravel-package-tools
-         */
         $package
             ->name('laravel-pdf-chrome-driver')
-            ->hasConfigFile('pdf-chrome-driver')
             ->hasCommand(InstallCommand::class);
     }
 
     public function registeringPackage(): void
     {
+        $this->mergeConfigFrom(__DIR__.'/../config/chrome.php', 'laravel-pdf.chrome');
+
         if (! interface_exists(PdfDriver::class)) {
             return;
         }
 
         $this->app->singleton('laravel-pdf.driver.chrome', function () {
             /** @var array<string, mixed> $config */
-            $config = config('pdf-chrome-driver', []);
+            $config = config('laravel-pdf.chrome', []);
 
             return new ChromeDriver($config);
         });

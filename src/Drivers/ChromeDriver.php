@@ -69,7 +69,7 @@ class ChromeDriver implements PdfDriver
             $chrome = $this->startBrowser();
 
             /** @var int|float $timeout */
-            $timeout = $this->config['timeout'] ?? config('pdf-chrome-driver.timeout', 10);
+            $timeout = $this->config['timeout'] ?? config('laravel-pdf.chrome.timeout', 10);
             $chrome->setTimeout((float) $timeout);
 
             /** @var array{result: array{targetId: string}} $target */
@@ -96,8 +96,8 @@ class ChromeDriver implements PdfDriver
                 'landscape' => $landscape,
                 'printBackground' => true,
                 'displayHeaderFooter' => $display_header_footer,
-                'headerTemplate' => $headerHtml ?? '',
-                'footerTemplate' => $footerHtml ?? '',
+                'headerTemplate' => $headerHtml ?? '<span></span>',
+                'footerTemplate' => $footerHtml ?? '<span></span>',
                 'paperWidth' => $paper_width,
                 'paperHeight' => $paper_height,
                 'marginTop' => $margin_top,
@@ -196,11 +196,11 @@ class ChromeDriver implements PdfDriver
     protected function toInches(float $value, string $unit): float
     {
         return match ($unit) {
-            'in' => round($value, 2),
-            'cm' => round($value * 0.3937007874, 2),
-            'mm' => round($value * 0.03937007874, 2),
-            'px' => round($value / 96, 2),
-            default => round($value * 0.03937007874, 2),
+            'in' => $value,
+            'cm' => $value / 2.54,
+            'mm' => $value / 25.4,
+            'px' => $value / 96,
+            default => $value / 25.4,
         };
     }
 

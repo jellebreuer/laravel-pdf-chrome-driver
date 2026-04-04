@@ -31,11 +31,8 @@ class InstallCommand extends Command
             $this->newLine();
             $this->info('To use this package on Linux ARM64, install Chromium via your package manager or some other route.');
             $this->newLine();
-            $this->info('Then configure the binary paths in your .env file:');
-            $this->line('  PDF_CHROME_DRIVER_CHROME_PATH=/usr/bin/chromium');
-            $this->newLine();
-            $this->info('Or publish and edit the config file:');
-            $this->line('  php artisan vendor:publish --tag=pdf-chrome-driver-config');
+            $this->info('Then configure the path in your .env file:');
+            $this->line('  LARAVEL_PDF_CHROME_PATH=/usr/bin/chromium');
 
             return self::SUCCESS;
         }
