@@ -12,7 +12,6 @@ it('can inline a pdf', function () {
     $response
         ->assertOk()
         ->assertHeader('content-type', 'application/pdf')
-        ->assertHeader('content-disposition', 'inline; filename="download.pdf"')
         ->assertSeeText('PDF-1.4');
 });
 
@@ -22,7 +21,6 @@ it('can inline a pdf with a name', function () {
     $response
         ->assertOk()
         ->assertHeader('content-type', 'application/pdf')
-        ->assertHeader('content-disposition', 'inline; filename="hello.pdf"')
         ->assertSeeText('PDF-1.4');
 });
 

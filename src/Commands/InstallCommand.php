@@ -2,7 +2,7 @@
 
 namespace Breuer\MakePDF\Commands;
 
-use Breuer\MakePDF\Client;
+use Breuer\MakePDF\Platform;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
@@ -19,13 +19,13 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
-        if (Client::onWindows()) {
+        if (Platform::onWindows()) {
             $this->error('Windows is not supported. This package uses CDP pipes which require a Unix-based OS.');
 
             return self::FAILURE;
         }
 
-        if (Client::onLinuxARM()) {
+        if (Platform::onLinuxARM()) {
             $this->warn('Linux ARM64 detected.');
             $this->warn('Pre-built Chrome binaries are not available for this platform.');
             $this->newLine();
@@ -73,7 +73,7 @@ class InstallCommand extends Command
         }
 
         $this->info('Fixing permissions');
-        chmod(Client::chromeHeadlessBinary(), 0755);
+        chmod(Platform::chromeHeadlessBinary(), 0755);
 
         $this->info('Installation complete');
 
@@ -140,11 +140,11 @@ class InstallCommand extends Command
     protected function getPlatformKey(): string
     {
 
-        if (Client::onLinux()) {
+        if (Platform::onLinux()) {
             return 'linux64';
-        } elseif (Client::onMacARM()) {
+        } elseif (Platform::onMacARM()) {
             return 'mac-arm64';
-        } elseif (Client::onMacIntel()) {
+        } elseif (Platform::onMacIntel()) {
             return 'mac-x64';
         }
 

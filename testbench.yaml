@@ -1,6 +1,9 @@
 providers:
   - Breuer\MakePDF\PDFServiceProvider
 
+env:
+  - LARAVEL_PDF_DRIVER=make-pdf
+
 workbench:
   discovers:
     web: true

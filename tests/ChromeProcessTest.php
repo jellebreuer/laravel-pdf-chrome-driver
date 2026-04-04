@@ -1,12 +1,12 @@
 <?php
 
 use Breuer\MakePDF\ChromeProcess;
-use Breuer\MakePDF\Client;
+use Breuer\MakePDF\Platform;
 
 function chromeCommand(string $userDataDir): array
 {
     return [
-        Client::chromeHeadlessBinary(),
+        Platform::chromeHeadlessBinary(),
         '--headless',
         '--no-sandbox',
         '--no-first-run',

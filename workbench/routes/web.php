@@ -1,27 +1,26 @@
 <?php
 
-use Breuer\MakePDF\Facades\PDF;
 use Illuminate\Support\Facades\Route;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
 Route::get('/pdf', function () {
-    return PDF::view('test')->response();
+    return Pdf::view('test');
 });
 
 Route::get('/pdf-named', function () {
-    return PDF::view('test')->name('hello')->response();
+    return Pdf::view('test')->name('hello');
 });
 
 Route::get('/pdf-download', function () {
-    return PDF::view('test')->download();
+    return Pdf::view('test')->download();
 });
 
 Route::get('/pdf-headerfooter', function () {
-    return PDF::view('test')
+    return Pdf::view('test')
         ->headerView('header')
-        ->footerView('footer')
-        ->response();
+        ->footerView('footer');
 });
