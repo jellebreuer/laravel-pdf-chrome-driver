@@ -2,6 +2,23 @@
 
 All notable changes to `laravel-make-pdf` will be documented in this file.
 
+## v2.0.1 - 2026-04-05
+
+### What's New
+
+#### Install command improvements
+
+- **Version pinning** — You can now specify a Chrome version to install, either as a milestone (`137`) or a full version string (`137.0.7151.55`). Defaults to latest stable when omitted.
+- **Custom install directory** — New `--path` option lets you install the Chrome binary to a custom location. Relative paths resolve from the project root, making it easy to install to `storage/browser` for zero-downtime deployment tools like Envoyer.
+- **Download progress bar** — The install command now shows a progress bar with download size and percentage.
+
+#### Configuration
+
+- Simplified config from a dedicated `pdf-chrome-driver.php` file to a `chrome` key within `config/laravel-pdf.php`, keeping all PDF configuration in one place.
+- Environment variables are now `LARAVEL_PDF_CHROME_PATH` and `LARAVEL_PDF_CHROME_TIMEOUT`.
+
+**Full Changelog**: https://github.com/jellebreuer/laravel-pdf-chrome-driver/compare/v2.0.0...v2.0.1
+
 ## v2.0.0 - 2026-04-04
 
 ### What's Changed
