@@ -4,7 +4,6 @@ namespace Breuer\ChromeDriver\Commands;
 
 use Breuer\ChromeDriver\Platform;
 use Illuminate\Console\Command;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use ZipArchive;
@@ -13,9 +12,11 @@ use function Breuer\ChromeDriver\package_path;
 
 class InstallCommand extends Command
 {
-    public $signature = 'pdf-chrome-driver:install';
+    public $signature = 'pdf-chrome-driver:install
+                    {version? : Chrome version to install (e.g. 137, 137.0.7151.55, or "latest")}
+                    {--path= : Directory to install into (absolute or relative to project root, e.g. "storage/chrome")}';
 
-    public $description = 'Download latest stable chrome-headless-shell';
+    public $description = 'Download chrome-headless-shell';
 
     public function handle(): int
     {
@@ -37,106 +38,214 @@ class InstallCommand extends Command
             return self::SUCCESS;
         }
 
-        if (! File::exists(package_path('browser'))) {
-            $this->info('Creating directory: '.package_path('browser'));
-            File::ensureDirectoryExists(package_path('browser'));
+        $installDir = $this->installDirectory();
+
+        if (! File::exists($installDir)) {
+            $this->info("Creating directory: {$installDir}");
+            File::ensureDirectoryExists($installDir);
         } else {
             $this->info('Removing old browser installations');
-            File::deleteDirectory(package_path('browser'), true);
+            File::deleteDirectory($installDir, true);
         }
 
-        $this->info('Fetching latest chrome build information');
-        $response = Http::get('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json');
-        $headless_chrome_downloads = $this->findHeadlessChromeDownloadsInResponse($response);
+        $version = $this->resolveVersion();
 
-        foreach ($headless_chrome_downloads as $download) {
-            if ($download->platform !== $this->getPlatformKey()) {
-                continue;
-            }
+        $this->info("Resolved version: {$version}");
 
-            $this->info('Downloading latest stable headless chrome');
-            $zipfile = package_path('browser/chrome-headless-shell.zip');
-            Http::sink($zipfile)->get($download->url);
+        $downloadUrl = $this->resolveDownloadUrl($version);
 
-            $this->info('Unzipping');
-            $zip = new ZipArchive;
-            $zip->open($zipfile);
-            $zip->extractTo(package_path('browser'));
-            $zip->close();
+        $this->info('Downloading chrome-headless-shell');
+        $zipfile = $installDir.'/chrome-headless-shell.zip';
+        $this->downloadWithProgress($downloadUrl, $zipfile);
 
-            File::delete($zipfile);
+        $this->info('Extracting binary');
+        $this->extractBinary($zipfile, $installDir);
 
-            break;
-        }
-
+        $binaryPath = $this->findBinary($installDir);
         $this->info('Fixing permissions');
-        chmod(Platform::chromeHeadlessBinary(), 0755);
+        chmod($binaryPath, 0755);
+
+        if ($this->option('path')) {
+            $this->newLine();
+            $this->info('Installed to custom directory. Configure the binary path in your .env:');
+            $this->line("  LARAVEL_PDF_CHROME_PATH={$binaryPath}");
+        }
 
         $this->info('Installation complete');
 
         return self::SUCCESS;
     }
 
-    /**
-     * @return array<int, object{platform: string, url: string}>
-     */
-    protected function findHeadlessChromeDownloadsInResponse(Response $response): array
+    protected function installDirectory(): string
     {
-        return $this->findDownloadsInResponse($response, 'chrome-headless-shell');
+        $path = $this->option('path');
+
+        if (is_string($path) && $path !== '') {
+            if (! str_starts_with($path, '/')) {
+                $path = base_path($path);
+            }
+
+            return rtrim($path, '/');
+        }
+
+        return package_path('browser');
     }
 
-    /**
-     * @return array<int, object{platform: string, url: string}>
-     *
-     * @throws \Exception
-     */
-    protected function findDownloadsInResponse(Response $response, string $downloadKey): array
+    protected function findBinary(string $directory): string
     {
+        $platformDir = 'chrome-headless-shell-'.$this->getPlatformKey();
+        $binaryPath = $directory.'/'.$platformDir.'/chrome-headless-shell';
+
+        if (file_exists($binaryPath)) {
+            return $binaryPath;
+        }
+
+        throw new \Exception("Could not find chrome-headless-shell binary at {$binaryPath}.");
+    }
+
+    protected function resolveVersion(): string
+    {
+        $version = $this->argument('version');
+
+        if (! $version || $version === 'latest') {
+            return $this->latestStableVersion();
+        }
+
+        if (! ctype_digit((string) $version)) {
+            return $version;
+        }
+
+        return $this->resolveVersionFromMilestone((int) $version);
+    }
+
+    protected function latestStableVersion(): string
+    {
+        $this->info('Fetching latest stable chrome build information');
+
+        $response = Http::get('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json');
+
         if (! $response->ok()) {
             throw new \Exception('Problem connecting to googlechromelabs.com');
         }
 
-        $object = $response->object();
-        if (
-            ! is_object($object)
-            || ! isset($object->channels)
-            || ! is_object($object->channels)
-            || ! isset($object->channels->Stable)
-            || ! is_object($object->channels->Stable)
-            || ! isset($object->channels->Stable->downloads)
-            || ! is_object($object->channels->Stable->downloads)
-            || ! isset($object->channels->Stable->downloads->{$downloadKey})
-            || ! is_array($object->channels->Stable->downloads->{$downloadKey})
-        ) {
-            throw new \Exception('Problem parsing response from googlechromelabs.com');
+        /** @var array{channels: array{Stable: array{version: string}}} $data */
+        $data = $response->json();
+
+        return $data['channels']['Stable']['version'];
+    }
+
+    protected function resolveVersionFromMilestone(int $milestone): string
+    {
+        $this->info("Fetching version for milestone {$milestone}");
+
+        $milestones = $this->fetchMilestonesData();
+
+        $milestone_data = $milestones[$milestone] ?? null;
+
+        if (! is_array($milestone_data) || ! isset($milestone_data['version']) || ! is_string($milestone_data['version'])) {
+            throw new \Exception("Could not resolve version for milestone {$milestone}.");
         }
 
-        $downloads = $object->channels->Stable->downloads->{$downloadKey};
+        return $milestone_data['version'];
+    }
 
-        $result = [];
+    protected function resolveDownloadUrl(string $version): string
+    {
+        $milestone = (int) $version;
+        $milestones = $this->fetchMilestonesData();
+        $platformKey = $this->getPlatformKey();
+
+        $milestoneData = $milestones[$milestone] ?? null;
+
+        if (! is_array($milestoneData)
+            || ! isset($milestoneData['downloads'])
+            || ! is_array($milestoneData['downloads'])
+            || ! isset($milestoneData['downloads']['chrome-headless-shell'])
+            || ! is_array($milestoneData['downloads']['chrome-headless-shell'])) {
+            throw new \Exception("No chrome-headless-shell downloads found for version {$version}.");
+        }
+
+        /** @var array<int, array{platform: string, url: string}> $downloads */
+        $downloads = $milestoneData['downloads']['chrome-headless-shell'];
+
         foreach ($downloads as $download) {
-            if (
-                is_object($download)
-                && isset($download->platform)
-                && is_string($download->platform)
-                && isset($download->url)
-                && is_string($download->url)
-            ) {
-                $result[] = (object) [
-                    'platform' => $download->platform,
-                    'url' => $download->url,
-                ];
-            } else {
-                throw new \Exception("Invalid {$downloadKey} download entry");
+            if ($download['platform'] === $platformKey) {
+                return $download['url'];
             }
         }
 
-        return $result;
+        throw new \Exception("No chrome-headless-shell download found for platform {$platformKey}.");
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    protected function fetchMilestonesData(): array
+    {
+        $response = Http::get('https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json');
+
+        if (! $response->ok()) {
+            throw new \Exception('Problem connecting to googlechromelabs.com');
+        }
+
+        /** @var array{milestones: array<int|string, mixed>} $data */
+        $data = $response->json();
+
+        return $data['milestones'];
+    }
+
+    protected function downloadWithProgress(string $url, string $destination): void
+    {
+        $progressBar = $this->output->createProgressBar();
+        $progressBar->setFormat(' %current_size% / %total_size% [%bar%] %percent:3s%%');
+        $progressBar->setMessage('0 KB', 'current_size');
+        $progressBar->setMessage('? MB', 'total_size');
+
+        Http::withOptions([
+            'progress' => function (int $totalDownload, int $downloaded) use ($progressBar): void {
+                if ($totalDownload > 0) {
+                    $progressBar->setMaxSteps($totalDownload);
+                    $progressBar->setMessage($this->formatBytes($totalDownload), 'total_size');
+                }
+
+                if ($downloaded > 0) {
+                    $progressBar->setProgress($downloaded);
+                    $progressBar->setMessage($this->formatBytes($downloaded), 'current_size');
+                }
+            },
+        ])->sink($destination)->get($url);
+
+        $progressBar->finish();
+        $this->newLine();
+    }
+
+    protected function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1048576) {
+            return round($bytes / 1048576, 1).' MB';
+        }
+
+        return round($bytes / 1024, 1).' KB';
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function extractBinary(string $zipfile, string $destination): void
+    {
+        $zip = new ZipArchive;
+
+        if ($zip->open($zipfile) !== true) {
+            throw new \Exception('Could not open the downloaded zip archive.');
+        }
+
+        $zip->extractTo($destination);
+        $zip->close();
+        File::delete($zipfile);
     }
 
     protected function getPlatformKey(): string
     {
-
         if (Platform::onLinux()) {
             return 'linux64';
         } elseif (Platform::onMacARM()) {

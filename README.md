@@ -56,25 +56,46 @@ Route::get('/pdf', function () {
 
 ## Configuration
 
-Publish the config file to customize Chrome binary path or timeout:
-
-```bash
-php artisan vendor:publish --tag="pdf-chrome-driver-config"
-```
+Configure the Chrome binary path and timeout in `config/laravel-pdf.php`:
 
 ```php
-return [
-    'path' => env('PDF_CHROME_DRIVER_CHROME_PATH'),
-    'timeout' => env('PDF_CHROME_DRIVER_TIMEOUT', 10),
-];
+'chrome' => [
+    'path' => env('LARAVEL_PDF_CHROME_PATH'),
+    'timeout' => env('LARAVEL_PDF_CHROME_TIMEOUT', 10),
+],
 ```
+
+### Custom install directory
+
+You can install to a custom directory with `--path`. Relative paths resolve from the project root:
+
+```bash
+# Install a specific Chrome milestone
+php artisan pdf-chrome-driver:install 137
+
+# Install to a custom directory
+php artisan pdf-chrome-driver:install --path=storage/browser
+
+# Absolute paths work too
+php artisan pdf-chrome-driver:install --path=/opt/chrome
+```
+
+When using `--path`, configure the binary path so the driver can find it:
+
+```php
+'chrome' => [
+    'path' => storage_path('browser/chrome-headless-shell-linux64/chrome-headless-shell'),
+],
+```
+
+This is useful for deployment tools like Envoyer where the `vendor` directory changes on each deploy but `storage` persists across releases.
 
 ### Linux ARM64
 
 Pre-built Chrome binaries are not available for Linux ARM64. Install Chromium via your package manager and point to it:
 
 ```
-PDF_CHROME_DRIVER_CHROME_PATH=/usr/bin/chromium
+LARAVEL_PDF_CHROME_PATH=/usr/bin/chromium
 ```
 
 ## How it works
